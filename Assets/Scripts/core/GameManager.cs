@@ -1,5 +1,6 @@
 using System;
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 namespace RunningLate
 {
@@ -69,9 +70,16 @@ namespace RunningLate
 
         private void HandleStateInput()
         {
+            Keyboard keyboard = Keyboard.current;
+
+            if (keyboard == null)
+            {
+                return;
+            }
+
             bool startPressed =
-                Input.GetKeyDown(KeyCode.Space) ||
-                Input.GetKeyDown(KeyCode.Return);
+                keyboard.spaceKey.wasPressedThisFrame ||
+                keyboard.enterKey.wasPressedThisFrame;
 
             if (State == GameState.GetReady && startPressed)
             {

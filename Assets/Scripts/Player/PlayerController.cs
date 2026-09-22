@@ -1,5 +1,6 @@
 using System.Collections;
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 namespace RunningLate
 {
@@ -103,10 +104,13 @@ namespace RunningLate
         {
             if (newState == GameManager.GameState.Running)
             {
+                Keyboard keyboard = Keyboard.current;
+
                 jumpInputReady =
-                    !Input.GetKey(KeyCode.Space) &&
-                    !Input.GetKey(KeyCode.W) &&
-                    !Input.GetKey(KeyCode.UpArrow);
+                    keyboard != null &&
+                    !keyboard.spaceKey.isPressed &&
+                    !keyboard.wKey.isPressed &&
+                    !keyboard.upArrowKey.isPressed;
             }
             else
             {
@@ -142,8 +146,15 @@ namespace RunningLate
 
         private void ReadLaneInput()
         {
-            if (Input.GetKeyDown(KeyCode.A) ||
-                Input.GetKeyDown(KeyCode.LeftArrow))
+            Keyboard keyboard = Keyboard.current;
+
+            if (keyboard == null)
+            {
+                return;
+            }
+
+            if (keyboard.aKey.wasPressedThisFrame ||
+                keyboard.leftArrowKey.wasPressedThisFrame)
             {
                 currentLane--;
 
@@ -153,8 +164,8 @@ namespace RunningLate
                 }
             }
 
-            if (Input.GetKeyDown(KeyCode.D) ||
-                Input.GetKeyDown(KeyCode.RightArrow))
+            if (keyboard.dKey.wasPressedThisFrame ||
+                keyboard.rightArrowKey.wasPressedThisFrame)
             {
                 currentLane++;
 
@@ -167,12 +178,19 @@ namespace RunningLate
 
         private void ReadJumpInput()
         {
+            Keyboard keyboard = Keyboard.current;
+
+            if (keyboard == null)
+            {
+                return;
+            }
+
             if (!jumpInputReady)
             {
                 bool jumpKeyStillHeld =
-                    Input.GetKey(KeyCode.Space) ||
-                    Input.GetKey(KeyCode.W) ||
-                    Input.GetKey(KeyCode.UpArrow);
+                    keyboard.spaceKey.isPressed ||
+                    keyboard.wKey.isPressed ||
+                    keyboard.upArrowKey.isPressed;
 
                 if (!jumpKeyStillHeld)
                 {
@@ -183,9 +201,9 @@ namespace RunningLate
             }
 
             bool jumpPressed =
-                Input.GetKeyDown(KeyCode.Space) ||
-                Input.GetKeyDown(KeyCode.W) ||
-                Input.GetKeyDown(KeyCode.UpArrow);
+                keyboard.spaceKey.wasPressedThisFrame ||
+                keyboard.wKey.wasPressedThisFrame ||
+                keyboard.upArrowKey.wasPressedThisFrame;
 
             if (jumpPressed &&
                 IsGrounded() &&
@@ -197,9 +215,16 @@ namespace RunningLate
 
         private void ReadSlideInput()
         {
+            Keyboard keyboard = Keyboard.current;
+
+            if (keyboard == null)
+            {
+                return;
+            }
+
             bool slidePressed =
-                Input.GetKeyDown(KeyCode.S) ||
-                Input.GetKeyDown(KeyCode.DownArrow);
+                keyboard.sKey.wasPressedThisFrame ||
+                keyboard.downArrowKey.wasPressedThisFrame;
 
             if (slidePressed &&
                 IsGrounded() &&
