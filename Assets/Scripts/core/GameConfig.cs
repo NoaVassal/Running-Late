@@ -36,6 +36,9 @@ namespace RunningLate
         public float batteryDrainInterval = 6f;
 
         [Min(0f)]
+        public float batteryDrainAmount = 1f;
+
+        [Min(0f)]
         public float batteryPickupValue = 5f;
 
         [Header("Project Points")]
