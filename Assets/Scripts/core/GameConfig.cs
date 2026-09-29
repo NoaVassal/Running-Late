@@ -12,6 +12,9 @@ namespace RunningLate
         [Min(0f)]
         public float baseScrollSpeed = 12f;
 
+        [Min(0.1f)]
+        public float trackSegmentLength = 30f;
+
         [Min(0f)]
         public float laneChangeSpeed = 10f;
 

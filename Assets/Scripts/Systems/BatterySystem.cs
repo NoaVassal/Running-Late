@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace RunningLate
 {
-    public class BatterySystem : MonoBehaviour
+    public class BatterySystem: MonoBehaviour
     {
         [Header("Configuration")]
         [SerializeField] private GameConfig config;
@@ -138,7 +138,9 @@ namespace RunningLate
                 return;
 
             CurrentBattery = clampedValue;
+            Debug.Log("Battery: " + CurrentBattery);
             OnBatteryChanged?.Invoke(CurrentBattery);
+
         }
 
         private void ResetBattery()
