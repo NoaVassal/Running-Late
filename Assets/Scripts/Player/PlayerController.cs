@@ -156,24 +156,58 @@ namespace RunningLate
             if (keyboard.aKey.wasPressedThisFrame ||
                 keyboard.leftArrowKey.wasPressedThisFrame)
             {
-                currentLane--;
-
-                if (currentLane < LeftLane)
-                {
-                    currentLane = LeftLane;
-                }
+                TryChangeLane(-1);
             }
 
             if (keyboard.dKey.wasPressedThisFrame ||
                 keyboard.rightArrowKey.wasPressedThisFrame)
             {
-                currentLane++;
-
-                if (currentLane > RightLane)
-                {
-                    currentLane = RightLane;
-                }
+                TryChangeLane(1);
             }
+        }
+
+        private void TryChangeLane(int direction)
+        {
+            int targetLane =
+                Mathf.Clamp(
+                    currentLane + direction,
+                    LeftLane,
+                    RightLane
+                );
+
+            if (targetLane == currentLane)
+                return;
+
+            bool leavingBoulevardForTrain =
+                currentLane == CenterLane &&
+                targetLane != CenterLane;
+
+            if (leavingBoulevardForTrain)
+            {
+                bool jumpIsActive =
+                    jumpRequested ||
+                    !IsGrounded() ||
+                    rb.linearVelocity.y > 0.1f ||
+                    IsJumpKeyPressedThisFrame();
+
+                if (!jumpIsActive)
+                    return;
+            }
+
+            currentLane = targetLane;
+        }
+
+        private bool IsJumpKeyPressedThisFrame()
+        {
+            Keyboard keyboard = Keyboard.current;
+
+            if (keyboard == null)
+                return false;
+
+            return
+                keyboard.spaceKey.wasPressedThisFrame ||
+                keyboard.wKey.wasPressedThisFrame ||
+                keyboard.upArrowKey.wasPressedThisFrame;
         }
 
         private void ReadJumpInput()

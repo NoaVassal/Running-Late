@@ -9,6 +9,21 @@ namespace RunningLate
 
         private void Awake()
         {
+            FindBatterySystem();
+        }
+
+        private void OnEnable()
+        {
+            collected = false;
+
+            if (batterySystem == null)
+            {
+                FindBatterySystem();
+            }
+        }
+
+        private void FindBatterySystem()
+        {
             batterySystem =
                 Object.FindFirstObjectByType<BatterySystem>();
 
@@ -38,11 +53,13 @@ namespace RunningLate
                 return;
 
             collected = true;
+
             batterySystem.RestoreBattery();
 
-            Debug.Log("Battery pickup collected!");
+            Debug.Log(
+                "Battery pickup collected!"
+            );
 
-            // Object Pooling will replace this later.
             gameObject.SetActive(false);
         }
     }

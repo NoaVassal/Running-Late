@@ -36,7 +36,7 @@ namespace RunningLate
         public float maxBattery = 100f;
 
         [Min(0.1f)]
-        public float batteryDrainInterval = 6f;
+        public float batteryDrainInterval = 4f;
 
         [Min(0f)]
         public float batteryDrainAmount = 1f;
@@ -46,7 +46,7 @@ namespace RunningLate
 
         [Header("Project Points")]
         [Min(1)]
-        public int projectPointValue = 10;
+        public int projectPointValue = 5;
 
         [Min(0)]
         public int passingGrade = 60;

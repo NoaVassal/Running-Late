@@ -9,7 +9,7 @@
 | **Engine / Unity version** | Unity 6 (6000.3.20f1), URP 3D |
 | **Orientation & reference resolution** | Landscape, 1920 × 1080 reference |
 | **Expected session length** | Approximately 3 minutes |
-| **Document version** | v1.0 — 2026-09-09 |
+| **Document version** | v1.1 — 2026-09-30 |
 
 ---
 
@@ -27,17 +27,18 @@ Running Late is a finite runner inspired by Subway Surfers. A computer-science s
 
 ## 2. Reference & Inspiration
 
-- **Primary Reference:** *Subway Surfers* 
+- **Primary Reference:** *Subway Surfers*
   - **Taking:** person running, lane-based movement, jumping, sliding, fast obstacle dodging, and collectible placement.
   - **Not taking:** Character unlocks, hoverboards, shops, currencies, or long-term progression.
-- **Secondary Reference:** *Temple Run* 
+- **Secondary Reference:** *Temple Run*
   - **Taking:** Constant forward movement, third-person perspective, and quick reaction-based obstacle avoidance.
   - **Not taking:** Sharp path turns, branching jungle routes, fantasy themes.
+
 ---
 
 ## 3. Core Game Loop
 
-```mermaid
+\`\`\`mermaid
 stateDiagram-v2
     [*] --> GetReady
     GetReady --> Running: Press Space / Start
@@ -45,36 +46,37 @@ stateDiagram-v2
     Running --> GameOver: Timer = 0
     Running --> GameOver: Battery = 0
     Running --> GameOver: Hit Obstacle
-    Results --> Passed: Final Grade > 60
-    Results --> Failed: Final Grade <= 60
+    Results --> Passed: Final Grade >= 60
+    Results --> Failed: Final Grade < 60
     Passed --> GetReady: Retry
     Failed --> GetReady: Retry
-```
+\`\`\`
 
 **Moment-to-moment rules:**
 - **Continuous Movement:** The player runs forward automatically while the environment moves toward the player.
 - **Movement:** Use A/D or Arrow Keys to move between lanes, Space/W/Up Arrow to jump, and S/Down Arrow to slide.
-- **Battery:** Battery slowly decreases during the run. Battery pickups restore charge. Reaching 0 causes Game Over.
-- **Project Points:** The Final Grade is equal to the total Project Points collected at the end of the run. A grade above 60 is a pass; 60 or below is a failure.
+- **Battery:** Battery decreases by 1 every 4 seconds during the run. Battery pickups restore 5%. Reaching 0 causes Game Over.
+- **Project Points:** Each collectible adds 5 Project Points. The Final Grade is equal to the total Project Points collected at the end of the run. A grade of 60 or above is a pass; below 60 is a failure.
 - **Goal:** Reach class before the timer expires while collecting enough Battery and Project Points to achieve a passing Final Grade.
-- **Failure:** The run fails if the timer reaches 0, Battery reaches 0, the player hits a lethal obstacle, or the player reaches the finish with a Final Grade of 60 or below.
+- **Failure:** The run fails if the timer reaches 0, Battery reaches 0, the player hits a lethal obstacle, or the player reaches the finish with a Final Grade below 60.
 
 ### Parameters you will need to tune
 
-| Parameter | What it controls | First guess |
+| Parameter | What it controls | Current value |
 |---|---|---|
-| `baseScrollSpeed` | Speed of the world moving toward the player | 12.0 u/s |
-| `laneChangeSpeed` | Speed of movement between lanes | 10.0 u/s |
-| `jumpForce` | Height and strength of the player's jump | 7.0 |
-| `slideDuration` | How long the player stays in slide mode | 0.8 s |
-| `classTimer` | Time available to reach class | 180 s |
-| `batteryDrainInterval` | How often Battery decreases | 6 s |
-| `batteryPickupValue` | Battery restored by one pickup | +5% |
-| `projectPointValue` | Project Points gained from one collectible | +10 |
+| \`baseScrollSpeed\` | Speed of the world moving toward the player | 12.0 u/s |
+| \`laneChangeSpeed\` | Speed of movement between lanes | 10.0 u/s |
+| \`jumpForce\` | Height and strength of the player's jump | 7.0 |
+| \`slideDuration\` | How long the player stays in slide mode | 0.8 s |
+| \`classTimer\` | Time available to reach class | 180 s |
+| \`batteryDrainInterval\` | How often Battery decreases | 4 s |
+| \`batteryPickupValue\` | Battery restored by one pickup | +5% |
+| \`projectPointValue\` | Project Points gained from one collectible | +5 |
+| \`passingGrade\` | Minimum passing Final Grade | 60 |
 
-**Where these live:** Centralized inside a `GameConfig` ScriptableObject and exposed in the Unity Inspector so gameplay values can be adjusted during playtesting without changing code.
+**Where these live:** Centralized inside a \`GameConfig\` ScriptableObject and exposed in the Unity Inspector so gameplay values can be adjusted during playtesting without changing code.
 
-**Feel target:** A first-time player should understand lane switching, jumping, and sliding within the first 30 seconds. After a few attempts, the player should be able to reach class with enough Project Points to achieve a Final Grade above 60.
+**Feel target:** A first-time player should understand lane switching, jumping, and sliding within the first 30 seconds. After a few attempts, the player should be able to reach class with enough Project Points to achieve a Final Grade of at least 60.
 
 ---
 
@@ -87,24 +89,25 @@ stateDiagram-v2
 | **Slide** | S / Down Arrow |
 | **Restart Game** | Enter / Spacebar |
 
-- Input is read during `Update()` and movement using physics is applied during `FixedUpdate()`.
+- Input is read during \`Update()\` and movement using physics is applied during \`FixedUpdate()\`.
+- Moving from the boulevard onto a raised train path requires a jump so the player cannot push into the side of the train.
 
 ---
-
 
 ## 5. Screens & UI
 
 1. **Title / Start Screen** — Centered game logo ("Running Late"), Play button.
 
 2. **HUD (In-Game)** —
-   - Top-Left: Class Timer.
+   - Top-Left: Project Points during the current prototype.
    - Top-Right: Battery percentage.
-   - Top-Center: Project Points.
+   - Final layout will also include the Class Timer.
    - *Deliberately absent:* Coins, shop icons, or extra menus during gameplay.
 
-3. **Results Screen** — Displays Final Grade, remaining Battery, Project Points collected, and a prominent "Retry" button. A grade above 60 is a pass; 60 or below is a failure.
+3. **Results Screen** — Displays Final Grade, remaining Battery, Project Points collected, and a prominent "Retry" button. A grade of 60 or above is a pass; below 60 is a failure.
 
-- **Canvas setup:** Screen Space – Camera, CanvasScaler *Scale With Screen Size*, reference 1920 × 1080, Match Width/Height = 0.5.
+- **Canvas setup target:** Screen Space – Camera, CanvasScaler *Scale With Screen Size*, reference 1920 × 1080, Match Width/Height = 0.5.
+- The current HUD is a temporary logic/debug presentation and will be replaced during the visual polish phase.
 
 ---
 
@@ -115,9 +118,8 @@ stateDiagram-v2
 | **Player Model** | Student character with Run, Jump, Slide, and Hit animations | Custom / Licensed Asset Pack | Player visualization |
 | **Environment Assets** | Jerusalem Boulevard streets, buildings, trees, benches, signs, and train elements | Custom / Licensed Asset Pack | Game environment |
 | **Obstacle Assets** | Barriers, scooters, bins, benches, and street obstacles | Custom / Licensed Asset Pack | Gameplay hazards |
-| **Collectibles** | Battery pickups and Project Point icons | Custom / Licensed Asset Pack | Gameplay collectibles |
+| **Collectibles** | Battery pickups and +5 Project Point icons | Custom / Licensed Asset Pack | Gameplay collectibles |
 | **SFX Pack** | Jump, Slide, Collect and Hit sounds | Freesound.org / CC0 or licensed audio | Audio feedback |
-
 
 **Licence note:** All visual and audio assets will be either created by the team or taken from properly licensed sources. Asset sources and licences will be documented before submission.
 
@@ -125,49 +127,57 @@ stateDiagram-v2
 
 ## 7. Technical Design
 
-**Scenes:** Single scene setup (`MainGame.unity`). Game reset is handled by the `GameManager` without reloading the scene.
+**Scenes:** Single scene setup (\`MainGame.unity\`). Game reset is handled by the \`GameManager\` without reloading the scene.
 
-**Packages / Systems Used:** Unity 3D Physics, Universal Render Pipeline (URP), TextMeshPro, Input Manager, Object Pooling, and ScriptableObject configuration.
+**Packages / Systems Used:** Unity 3D Physics, Universal Render Pipeline (URP), Input System, Object Pooling, Events, and ScriptableObject configuration.
 
 **Architecture Diagram:**
 
-```mermaid
+\`\`\`mermaid
 graph TD
     GM[GameManager<br/>Game State & Win/Lose] --> PC[PlayerController<br/>Movement & Physics]
     GM --> TM[TrackManager<br/>Track Segments]
-    GM --> OP[ObjectPoolManager<br/>Obstacles & Collectibles]
     GM --> BS[BatterySystem<br/>Battery]
-    GM --> SS[ScoreSystem<br/>Project Points/ Final Grade]
-    GM --> UI[UIManager<br/>HUD & Results]
+    GM --> SS[ScoreSystem<br/>Project Points / Final Grade]
+    GM --> UI[HUD<br/>Battery & Project Points]
     CFG[GameConfig<br/>ScriptableObject] -.->PC
     CFG -.-> BS
     CFG -.-> SS
-```
+    TM --> BRS[BatteryRandomSpawner]
+    TM --> PRS[ProjectPointRandomSpawner]
+\`\`\`
 
 | Script Name | Single Responsibility |
 |---|---|
-| `GameManager` | Manages game state, win, failure, and restart. |
-| `PlayerController` | Handles lane movement, jumping, sliding, and player physics. |
-| `TrackManager` | Controls track segments and progress toward the classroom. |
-| `ObjectPoolManager` | Reuses obstacles and collectibles during gameplay. |
-| `BatterySystem` | Handles Battery drain and Battery pickups. |
-| `ScoreSystem` | Tracks Project Points and sets the Final Grade equal to the total Project Points collected. |
-| `UIManager` | Updates the timer, Battery, Project Points, and Results screen. |
-| `GameConfig` | Stores editable gameplay values such as speed, jump force, timer, and collectible values. |
+| \`GameManager\` | Manages game state, win, failure, and restart. |
+| \`PlayerController\` | Handles lane movement, jumping, sliding, and player physics. |
+| \`TrackManager\` | Controls track segments and progress toward the classroom. |
+| \`BatterySystem\` | Handles Battery drain and Battery pickups. |
+| \`BatteryRandomSpawner\` | Reuses and randomly places Battery pickups on recycled track segments. |
+| \`ScoreSystem\` | Tracks Project Points and sets the Final Grade equal to the total Project Points collected. |
+| \`ProjectPointRandomSpawner\` | Reuses and randomly places +5 Project Point collectibles. |
+| \`BatteryHUD\` | Temporary runtime Battery display. |
+| \`ScoreHUD\` | Temporary runtime Project Points display. |
+| \`GameConfig\` | Stores editable gameplay values such as speed, jump force, timer, Battery, and Project Point values. |
+
+### Current prototype placement
+
+- The route uses three lanes: left train, center boulevard, and right train.
+- Battery and Project Point pickups are randomized between all three lanes.
+- Collectibles are kept at a minimum distance ahead of the player to provide reaction time.
+- Current Battery spawn chance per recycled segment: approximately 50%.
+- Current Project Point spawn chance per recycled segment: approximately 45%.
+- Battery pickup prototype scale: 0.035.
+- Project Point pickup prototype scale: 0.05.
 
 ### Course Features
 
-1. **Coroutine:** Handle the start countdown, Battery drain, and short UI feedback because these are time-based sequences.
+1. **Coroutine:** Battery drain, slide timing, and reset sequencing.
+2. **Object Pooling:** Reuse recurring collectibles and track segments instead of repeatedly creating and destroying them.
+3. **Singleton:** Use \`GameManager\` as the single manager for the main game state.
+4. **Events:** Notify HUD systems when Battery or Project Points change.
+5. **ScriptableObject Configuration:** Store gameplay values in \`GameConfig\` so they can be adjusted during playtesting without changing code.
 
-2. **Object Pool:** Reuse recurring obstacles, collectibles, and track segments instead of repeatedly creating and destroying them during the run.
-
-3. **Singleton:** Use `GameManager` as the single manager for the main game state, including start, win, failure, and restart.
-
-4. **Events:** Notify the UI and audio systems when Battery, Project Points, or the game state changes without directly coupling these systems to the player.
-
-5. **ScriptableObject Configuration:** Store gameplay values such as speed, jump force, timer duration, Battery values, and Project Point values so they can be adjusted during playtesting without changing code.
-
-Only features that improve the actual implementation will remain. The architecture may change during development if the prototype shows that a simpler solution works better.
 ---
 
 ## 8. Scope
@@ -175,40 +185,31 @@ Only features that improve the actual implementation will remain. The architectu
 ### 8.1 MVP — Core Playable Game
 
 - [ ] Automatic forward running with lane switching between street zones and train paths.
-
 - [ ] Jumping, sliding, and collision with basic urban obstacles.
-
 - [ ] Class timer with failure when the timer reaches zero.
-
 - [ ] Battery system with passive drain and collectible Battery pickups.
-
-- [ ]  displaying the total Project Points as the Final Grade at the finish.
+- [ ] Displaying the total Project Points as the Final Grade at the finish.
 
 ### 8.2 Polish — Target Course Features
 
 - [ ] Temporary power-ups that give the player special abilities for a few seconds, such as a shield, score multiplier, or Battery protection.
-
 - [ ] More polished Jerusalem Boulevard environment and train visuals.
-
 - [ ] Speed increase or denser obstacle patterns near the end of the run.
-
 - [ ] Improved animations, sound effects, and camera feedback.
 
 ### 8.3 Explicitly Out of Scope
 
 - **No Coins or Currency Systems:** No additional currency beyond Project Points.
-
 - **No Shop or Upgrades:** No permanent upgrades or stat progression.
-
 - **No Character Customization:** No skins, costumes, or character selection.
-
 - **No Multiplayer or Online Systems:** No leaderboards, accounts, networking, or cloud saves.
-
 - **No Open World:** The game follows one finite runner route toward the classroom.
 
 ---
+
 ## Changelog
 
 | Version | Date | Change |
 |---|---|---|
-| v1.0 | 2026-09-09 | Finalized the initial Game Design Document for *Running Late*. Defined the high concept, references, core game loop, controls, UI, art direction, technical architecture, course features, MVP, polish features, and scope limits. |
+| v1.0 | 2026-09-09 | Finalized the initial Game Design Document for *Running Late*. |
+| v1.1 | 2026-09-30 | Updated Battery drain to 4 seconds, Project Point value to +5, passing grade to 60 or higher, randomized collectible spawning, minimum spawn distance, raised-train lane movement rule, and temporary HUD status. |

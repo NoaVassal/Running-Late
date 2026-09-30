@@ -9,13 +9,28 @@ namespace RunningLate
 
         private void Awake()
         {
+            FindScoreSystem();
+        }
+
+        private void OnEnable()
+        {
+            collected = false;
+
+            if (scoreSystem == null)
+            {
+                FindScoreSystem();
+            }
+        }
+
+        private void FindScoreSystem()
+        {
             scoreSystem =
                 Object.FindFirstObjectByType<ScoreSystem>();
 
             if (scoreSystem == null)
             {
                 Debug.LogError(
-                    "ProjectPointCollectible: ScoreSystem was not found in the scene."
+                    "ProjectPointCollectible: ScoreSystem was not found."
                 );
             }
         }
@@ -28,6 +43,12 @@ namespace RunningLate
             if (!other.CompareTag("Player"))
                 return;
 
+            if (GameManager.Instance == null ||
+                !GameManager.Instance.IsRunning)
+            {
+                return;
+            }
+
             if (scoreSystem == null)
                 return;
 
@@ -35,10 +56,11 @@ namespace RunningLate
 
             scoreSystem.AddProjectPoints();
 
-            Debug.Log("Project Point collected!");
+            Debug.Log(
+                "Project Point collected! Grade: " +
+                scoreSystem.FinalGrade
+            );
 
-            // Temporary behaviour.
-            // Later this will be handled by the Object Pool.
             gameObject.SetActive(false);
         }
     }
