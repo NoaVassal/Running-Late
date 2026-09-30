@@ -4,8 +4,6 @@ using UnityEngine.InputSystem;
 
 namespace RunningLate
 {
-    [RequireComponent(typeof(Rigidbody))]
-    [RequireComponent(typeof(CapsuleCollider))]
     public class PlayerController : MonoBehaviour
     {
         [Header("Configuration")]
@@ -62,18 +60,25 @@ namespace RunningLate
                 RigidbodyConstraints.FreezeRotation |
                 RigidbodyConstraints.FreezePositionZ;
 
-            rb.interpolation = RigidbodyInterpolation.Interpolate;
+            rb.interpolation =
+                RigidbodyInterpolation.Interpolate;
 
             startingPosition = transform.position;
             startingRotation = transform.rotation;
 
-            originalColliderHeight = capsuleCollider.height;
-            originalColliderCenter = capsuleCollider.center;
+            originalColliderHeight =
+                capsuleCollider.height;
+
+            originalColliderCenter =
+                capsuleCollider.center;
 
             if (playerVisual != null)
             {
-                originalVisualScale = playerVisual.localScale;
-                originalVisualPosition = playerVisual.localPosition;
+                originalVisualScale =
+                    playerVisual.localScale;
+
+                originalVisualPosition =
+                    playerVisual.localPosition;
             }
 
             if (config == null)
@@ -95,12 +100,17 @@ namespace RunningLate
         {
             if (GameManager.Instance != null)
             {
-                GameManager.Instance.OnRunReset += ResetPlayer;
-                GameManager.Instance.OnGameStateChanged += HandleGameStateChanged;
+                GameManager.Instance.OnRunReset +=
+                    ResetPlayer;
+
+                GameManager.Instance.OnGameStateChanged +=
+                    HandleGameStateChanged;
             }
         }
 
-        private void HandleGameStateChanged(GameManager.GameState newState)
+        private void HandleGameStateChanged(
+            GameManager.GameState newState
+        )
         {
             if (newState == GameManager.GameState.Running)
             {
@@ -156,24 +166,64 @@ namespace RunningLate
             if (keyboard.aKey.wasPressedThisFrame ||
                 keyboard.leftArrowKey.wasPressedThisFrame)
             {
-                currentLane--;
-
-                if (currentLane < LeftLane)
-                {
-                    currentLane = LeftLane;
-                }
+                TryChangeLane(-1);
             }
 
             if (keyboard.dKey.wasPressedThisFrame ||
                 keyboard.rightArrowKey.wasPressedThisFrame)
             {
-                currentLane++;
+                TryChangeLane(1);
+            }
+        }
 
-                if (currentLane > RightLane)
+        private void TryChangeLane(int direction)
+        {
+            int targetLane =
+                Mathf.Clamp(
+                    currentLane + direction,
+                    LeftLane,
+                    RightLane
+                );
+
+            if (targetLane == currentLane)
+            {
+                return;
+            }
+
+            bool leavingBoulevardForTrain =
+                currentLane == CenterLane &&
+                targetLane != CenterLane;
+
+            if (leavingBoulevardForTrain)
+            {
+                bool jumpIsActive =
+                    jumpRequested ||
+                    !IsGrounded() ||
+                    rb.linearVelocity.y > 0.1f ||
+                    IsJumpKeyPressedThisFrame();
+
+                if (!jumpIsActive)
                 {
-                    currentLane = RightLane;
+                    return;
                 }
             }
+
+            currentLane = targetLane;
+        }
+
+        private bool IsJumpKeyPressedThisFrame()
+        {
+            Keyboard keyboard = Keyboard.current;
+
+            if (keyboard == null)
+            {
+                return false;
+            }
+
+            return
+                keyboard.spaceKey.wasPressedThisFrame ||
+                keyboard.wKey.wasPressedThisFrame ||
+                keyboard.upArrowKey.wasPressedThisFrame;
         }
 
         private void ReadJumpInput()
@@ -230,7 +280,10 @@ namespace RunningLate
                 IsGrounded() &&
                 !isSliding)
             {
-                slideCoroutine = StartCoroutine(SlideRoutine());
+                slideCoroutine =
+                    StartCoroutine(
+                        SlideRoutine()
+                    );
             }
         }
 
@@ -240,20 +293,23 @@ namespace RunningLate
                 startingPosition.x +
                 currentLane * config.laneWidth;
 
-            Vector3 currentPosition = rb.position;
+            Vector3 currentPosition =
+                rb.position;
 
-            float newX = Mathf.MoveTowards(
-                currentPosition.x,
-                targetX,
-                config.laneChangeSpeed *
-                Time.fixedDeltaTime
-            );
+            float newX =
+                Mathf.MoveTowards(
+                    currentPosition.x,
+                    targetX,
+                    config.laneChangeSpeed *
+                    Time.fixedDeltaTime
+                );
 
-            Vector3 newPosition = new Vector3(
-                newX,
-                currentPosition.y,
-                currentPosition.z
-            );
+            Vector3 newPosition =
+                new Vector3(
+                    newX,
+                    currentPosition.y,
+                    currentPosition.z
+                );
 
             rb.MovePosition(newPosition);
         }
@@ -383,24 +439,34 @@ namespace RunningLate
             isSliding = false;
             jumpRequested = false;
             jumpInputReady = false;
+
             currentLane = CenterLane;
 
             RestoreCollider();
             RestoreVisual();
 
-            rb.linearVelocity = Vector3.zero;
-            rb.angularVelocity = Vector3.zero;
+            rb.linearVelocity =
+                Vector3.zero;
 
-            rb.position = startingPosition;
-            rb.rotation = startingRotation;
+            rb.angularVelocity =
+                Vector3.zero;
+
+            rb.position =
+                startingPosition;
+
+            rb.rotation =
+                startingRotation;
         }
 
         private void OnDestroy()
         {
             if (GameManager.Instance != null)
             {
-                GameManager.Instance.OnRunReset -= ResetPlayer;
-                GameManager.Instance.OnGameStateChanged -= HandleGameStateChanged;
+                GameManager.Instance.OnRunReset -=
+                    ResetPlayer;
+
+                GameManager.Instance.OnGameStateChanged -=
+                    HandleGameStateChanged;
             }
         }
     }

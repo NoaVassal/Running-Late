@@ -9,6 +9,24 @@ namespace RunningLate
 
         private void Awake()
         {
+            FindBatterySystem();
+        }
+
+        private void OnEnable()
+        {
+            // Important for Object Pooling:
+            // every time the battery is reused,
+            // it becomes collectible again.
+            collected = false;
+
+            if (batterySystem == null)
+            {
+                FindBatterySystem();
+            }
+        }
+
+        private void FindBatterySystem()
+        {
             batterySystem =
                 Object.FindFirstObjectByType<BatterySystem>();
 
@@ -38,11 +56,14 @@ namespace RunningLate
                 return;
 
             collected = true;
+
             batterySystem.RestoreBattery();
 
-            Debug.Log("Battery pickup collected!");
+            Debug.Log(
+                "Battery pickup collected!"
+            );
 
-            // Object Pooling will replace this later.
+            // Returned to the pool.
             gameObject.SetActive(false);
         }
     }

@@ -122,7 +122,7 @@ namespace RunningLate
             if (!IsRunning)
                 return;
 
-            bool passed = finalGrade > config.passingGrade;
+            bool passed = finalGrade >= config.passingGrade;
 
             SetState(GameState.Results);
             OnRunFinished?.Invoke(passed, finalGrade);
