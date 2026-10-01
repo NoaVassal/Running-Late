@@ -13,21 +13,28 @@ namespace RunningLate
         [SerializeField] private Rigidbody rb;
         [SerializeField] private CapsuleCollider capsuleCollider;
 
-        [Header("Visual")]
-        [SerializeField] private Transform playerVisual;
-
         [Header("Ground Detection")]
         [SerializeField] private LayerMask groundMask;
-
-        [Header("Slide Visual Settings")]
-        [SerializeField] private float slideVisualScaleY = 0.5f;
-        [SerializeField] private float slideVisualOffsetY = -0.5f;
 
         private const int LeftLane = -1;
         private const int CenterLane = 0;
         private const int RightLane = 1;
 
+        private static readonly int MoveSpeedHash =
+            Animator.StringToHash("MoveSpeed");
+
+        private static readonly int GroundedHash =
+            Animator.StringToHash("Grounded");
+
+        private static readonly int JumpHash =
+            Animator.StringToHash("Jump");
+
+        private static readonly int SlideHash =
+            Animator.StringToHash("Slide");
+
         private int currentLane = CenterLane;
+
+        [SerializeField] private Animator animator;
 
         private bool jumpRequested = false;
         private bool isSliding = false;
@@ -38,9 +45,6 @@ namespace RunningLate
 
         private float originalColliderHeight;
         private Vector3 originalColliderCenter;
-
-        private Vector3 originalVisualScale;
-        private Vector3 originalVisualPosition;
 
         private Coroutine slideCoroutine;
 
@@ -54,6 +58,32 @@ namespace RunningLate
             if (capsuleCollider == null)
             {
                 capsuleCollider = GetComponent<CapsuleCollider>();
+            }
+
+            if (capsuleCollider == null)
+            {
+                Debug.LogError(
+                    "PlayerController: CapsuleCollider was not found.",
+                    this
+                );
+
+                enabled = false;
+                return;
+            }
+
+            animator = GetComponentInChildren<Animator>();
+
+            if (animator == null)
+            {
+                Debug.LogWarning(
+                    "PlayerController: Animator was not found in the Player hierarchy.",
+                    this
+                );
+            }
+            else
+            {
+                animator.ResetTrigger(JumpHash);
+                animator.SetFloat(MoveSpeedHash, 0f);
             }
 
             rb.constraints |=
@@ -72,26 +102,10 @@ namespace RunningLate
             originalColliderCenter =
                 capsuleCollider.center;
 
-            if (playerVisual != null)
-            {
-                originalVisualScale =
-                    playerVisual.localScale;
-
-                originalVisualPosition =
-                    playerVisual.localPosition;
-            }
-
             if (config == null)
             {
                 Debug.LogError(
                     "PlayerController: GameConfig is not assigned."
-                );
-            }
-
-            if (playerVisual == null)
-            {
-                Debug.LogError(
-                    "PlayerController: Player Visual is not assigned."
                 );
             }
         }
@@ -125,11 +139,19 @@ namespace RunningLate
             else
             {
                 jumpInputReady = false;
+                CancelSlide();
+
+                if (animator != null)
+                {
+                    animator.ResetTrigger(JumpHash);
+                }
             }
         }
 
         private void Update()
         {
+            UpdateAnimatorParameters();
+
             if (GameManager.Instance == null ||
                 !GameManager.Instance.IsRunning)
             {
@@ -277,8 +299,10 @@ namespace RunningLate
                 keyboard.downArrowKey.wasPressedThisFrame;
 
             if (slidePressed &&
+                config != null &&
                 IsGrounded() &&
-                !isSliding)
+                !isSliding &&
+                slideCoroutine == null)
             {
                 slideCoroutine =
                     StartCoroutine(
@@ -332,10 +356,41 @@ namespace RunningLate
                 Vector3.up * config.jumpForce,
                 ForceMode.Impulse
             );
+
+            if (animator != null)
+            {
+                animator.ResetTrigger(JumpHash);
+                animator.SetTrigger(JumpHash);
+            }
+        }
+
+        private void UpdateAnimatorParameters()
+        {
+            if (animator == null)
+            {
+                return;
+            }
+
+            bool gameplayIsRunning =
+                GameManager.Instance != null &&
+                GameManager.Instance.IsRunning;
+
+            float moveSpeed =
+                gameplayIsRunning && config != null
+                    ? config.baseScrollSpeed
+                    : 0f;
+
+            animator.SetFloat(MoveSpeedHash, moveSpeed);
+            animator.SetBool(GroundedHash, IsGrounded());
         }
 
         private bool IsGrounded()
         {
+            if (capsuleCollider == null)
+            {
+                return false;
+            }
+
             float rayDistance =
                 capsuleCollider.bounds.extents.y +
                 0.15f;
@@ -355,13 +410,9 @@ namespace RunningLate
             float newHeight =
                 originalColliderHeight * 0.5f;
 
-            float originalBottom =
-                originalColliderCenter.y -
-                originalColliderHeight / 2f;
-
             float newCenterY =
-                originalBottom +
-                newHeight / 2f;
+                originalColliderCenter.y -
+                (originalColliderHeight - newHeight) / 2f;
 
             capsuleCollider.height =
                 newHeight;
@@ -373,20 +424,10 @@ namespace RunningLate
                     originalColliderCenter.z
                 );
 
-            if (playerVisual != null)
+            if (animator != null)
             {
-                playerVisual.localScale =
-                    new Vector3(
-                        originalVisualScale.x,
-                        originalVisualScale.y *
-                        slideVisualScaleY,
-                        originalVisualScale.z
-                    );
-
-                playerVisual.localPosition =
-                    originalVisualPosition +
-                    Vector3.up *
-                    slideVisualOffsetY;
+                animator.ResetTrigger(SlideHash);
+                animator.SetTrigger(SlideHash);
             }
 
             yield return new WaitForSeconds(
@@ -399,14 +440,23 @@ namespace RunningLate
         private void EndSlide()
         {
             RestoreCollider();
-            RestoreVisual();
 
             isSliding = false;
             slideCoroutine = null;
+
+            if (animator != null)
+            {
+                animator.ResetTrigger(SlideHash);
+            }
         }
 
         private void RestoreCollider()
         {
+            if (capsuleCollider == null)
+            {
+                return;
+            }
+
             capsuleCollider.height =
                 originalColliderHeight;
 
@@ -414,21 +464,7 @@ namespace RunningLate
                 originalColliderCenter;
         }
 
-        private void RestoreVisual()
-        {
-            if (playerVisual == null)
-            {
-                return;
-            }
-
-            playerVisual.localScale =
-                originalVisualScale;
-
-            playerVisual.localPosition =
-                originalVisualPosition;
-        }
-
-        private void ResetPlayer()
+        private void CancelSlide()
         {
             if (slideCoroutine != null)
             {
@@ -436,14 +472,29 @@ namespace RunningLate
                 slideCoroutine = null;
             }
 
+            RestoreCollider();
             isSliding = false;
+
+            if (animator != null)
+            {
+                animator.ResetTrigger(SlideHash);
+            }
+        }
+
+        private void ResetPlayer()
+        {
+            CancelSlide();
+
             jumpRequested = false;
             jumpInputReady = false;
 
-            currentLane = CenterLane;
+            if (animator != null)
+            {
+                animator.ResetTrigger(JumpHash);
+                animator.SetFloat(MoveSpeedHash, 0f);
+            }
 
-            RestoreCollider();
-            RestoreVisual();
+            currentLane = CenterLane;
 
             rb.linearVelocity =
                 Vector3.zero;
@@ -456,6 +507,11 @@ namespace RunningLate
 
             rb.rotation =
                 startingRotation;
+        }
+
+        private void OnDisable()
+        {
+            CancelSlide();
         }
 
         private void OnDestroy()
