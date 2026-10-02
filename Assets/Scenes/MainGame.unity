@@ -474,12 +474,16 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2b4cbab620feaf34dbbd00fe98cd96d5, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::RunningLate.BatteryRandomSpawner
-  spawnChancePerSegment: 0.3
+  spawnChancePerSegment: 0.35
   minLocalZ: -10
   maxLocalZ: 10
   minimumDistanceAhead: 30
+  minimumCollectibleDistance: 3
   pickupScale: 0.12
+  heightAboveSurface: 1.05
   poolSize: 6
+  surfaceProbeHeight: 8
+  surfaceProbeDistance: 20
 --- !u!1 &334389018
 GameObject:
   m_ObjectHideFlags: 0
@@ -604,6 +608,8 @@ GameObject:
   - component: {fileID: 371313050}
   - component: {fileID: 371313052}
   - component: {fileID: 371313053}
+  - component: {fileID: 371313054}
+  - component: {fileID: 371313055}
   m_Layer: 0
   m_Name: TrackManager
   m_TagString: Untagged
@@ -656,13 +662,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 45112185c986edd40a15aef188a65cb2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::RunningLate.ObstacleRandomSpawner
-  spawnChancePerSegment: 0.65
+  spawnChancePerSegment: 0.8
   minLocalZ: -8
   maxLocalZ: 10
   minimumDistanceAhead: 36
   minimumCollectibleDistance: 4
-  minimumHazardDistance: 6
-  laneBlockWindow: 5
+  minimumHazardDistance: 22
+  laneBlockWindow: 6
   poolSize: 6
   jumpObstacleWidth: 1.25
   jumpObstacleHeight: 0.9
@@ -678,20 +684,55 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 371313049}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 51d13a6c52c315e4ba95c2559d9d7904, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::RunningLate.TrainGapRandomSpawner
-  spawnChancePerSegment: 0.35
+  spawnChancePerSegment: 0.45
   minLocalZ: -8
   maxLocalZ: 10
   minimumDistanceAhead: 36
-  minimumDistanceFromOtherObjects: 5
+  minimumDistanceFromOtherObjects: 12
   gapWidth: 2
   gapLength: 3
   triggerHeight: 0.3
   poolSize: 5
+--- !u!114 &371313054
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 371313049}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8b6cda1e5286c1f429613488e2922e44, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::RunningLate.TrainRandomSpawner
+--- !u!114 &371313055
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 371313049}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 07fe1ee243951da40a27254d48deeb88, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::RunningLate.TrainRandomSpawner
+  spawnChancePerSide: 0.6
+  rampTrainChance: 0.55
+  emptySegmentsBetweenTrains: 0
+  keepFirstSegmentClear: 1
+  minLocalZ: 0
+  maxLocalZ: 0
+  trainWidth: 2.1
+  trainHeight: 2.25
+  trainLength: 21
+  rampLength: 8
+  boardingZoneLength: 8
 --- !u!1 &441333105
 GameObject:
   m_ObjectHideFlags: 0
@@ -1001,12 +1042,16 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5a471ceb899aba04290bdc6b11bd047c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::RunningLate.ProjectPointRandomSpawner
-  spawnChancePerSegment: 0.4
+  spawnChancePerSegment: 0.35
   minLocalZ: -10
   maxLocalZ: 10
   minimumDistanceAhead: 30
+  minimumCollectibleDistance: 3
   pickupScale: 0.08
+  heightAboveSurface: 1.05
   poolSize: 8
+  surfaceProbeHeight: 8
+  surfaceProbeDistance: 20
 --- !u!114 &784179963
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2402,10 +2447,24 @@ MonoBehaviour:
   config: {fileID: 11400000, guid: b7064d45888244bc287df0c25934f650, type: 2}
   rb: {fileID: 2131451542}
   capsuleCollider: {fileID: 2131451541}
+  animator: {fileID: 1179315238}
   groundMask:
     serializedVersion: 2
     m_Bits: 8
-  animator: {fileID: 1179315238}
+  upwardGravityMultiplier: 1.05
+  fallGravityMultiplier: 3.5
+  maxUpwardSpeed: 6.5
+  trainJumpMaxUpwardSpeed: 4.6
+  maxFallSpeed: 20
+  jumpToSlideDownSpeed: 9
+  jumpBufferDuration: 0.18
+  trainExitLaneSpeedMultiplier: 2.2
+  trainExitDownSpeed: 8.5
+  trainExitDuration: 1.2
+  trainExitClearanceMargin: 0.02
+  trainSidePushDistance: 0.5
+  trainSidePushInDuration: 0.06
+  trainSideReturnDuration: 0.12
 --- !u!136 &2131451541
 CapsuleCollider:
   m_ObjectHideFlags: 0

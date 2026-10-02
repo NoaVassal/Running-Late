@@ -12,15 +12,15 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 813b87e2765764c03a5df901ae33c0f2, type: 3}
   m_Name: GameConfig
   m_EditorClassIdentifier: Assembly-CSharp::RunningLate.GameConfig
-  baseScrollSpeed: 12
+  baseScrollSpeed: 17.5
   trackSegmentLength: 30
-  laneChangeSpeed: 10
+  laneChangeSpeed: 12.5
   laneWidth: 2.5
   jumpForce: 7
   slideDuration: 0.8
   classTimer: 180
   maxBattery: 100
-  batteryDrainInterval: 3
+  batteryDrainInterval: 1
   batteryDrainAmount: 1
   batteryPickupValue: 5
   projectPointValue: 5

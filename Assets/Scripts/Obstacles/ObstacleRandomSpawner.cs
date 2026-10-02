@@ -4,6 +4,7 @@ using UnityEngine;
 
 namespace RunningLate
 {
+    [DefaultExecutionOrder(-100)]
     public class ObstacleRandomSpawner : MonoBehaviour
     {
         // ==================================================
@@ -14,19 +15,24 @@ namespace RunningLate
 
         [SerializeField]
         [Range(0f, 1f)]
-        private float spawnChancePerSegment = 0.65f;
+        private float spawnChancePerSegment =
+            0.80f;
 
         [SerializeField]
-        private float minLocalZ = -8f;
+        private float minLocalZ =
+            -8f;
 
         [SerializeField]
-        private float maxLocalZ = 10f;
+        private float maxLocalZ =
+            10f;
 
         [SerializeField]
-        private float minimumDistanceAhead = 36f;
+        private float minimumDistanceAhead =
+            36f;
 
         [SerializeField]
-        private float minimumCollectibleDistance = 4f;
+        private float minimumCollectibleDistance =
+            4f;
 
         // ==================================================
         // SAFETY
@@ -39,14 +45,16 @@ namespace RunningLate
             "in the same lane."
         )]
         [SerializeField]
-        private float minimumHazardDistance = 6f;
+        private float minimumHazardDistance =
+            22f;
 
         [Tooltip(
             "Z range used when checking whether " +
             "all three lanes would become blocked."
         )]
         [SerializeField]
-        private float laneBlockWindow = 5f;
+        private float laneBlockWindow =
+            6f;
 
         // ==================================================
         // POOL
@@ -55,7 +63,8 @@ namespace RunningLate
         [Header("Pool")]
 
         [SerializeField]
-        private int poolSize = 6;
+        private int poolSize =
+            6;
 
         // ==================================================
         // JUMP OBSTACLE
@@ -64,13 +73,16 @@ namespace RunningLate
         [Header("Jump Obstacle")]
 
         [SerializeField]
-        private float jumpObstacleWidth = 1.25f;
+        private float jumpObstacleWidth =
+            1.25f;
 
         [SerializeField]
-        private float jumpObstacleHeight = 0.9f;
+        private float jumpObstacleHeight =
+            0.9f;
 
         [SerializeField]
-        private float jumpObstacleDepth = 0.8f;
+        private float jumpObstacleDepth =
+            0.8f;
 
         // ==================================================
         // SLIDE OBSTACLE
@@ -79,34 +91,45 @@ namespace RunningLate
         [Header("Slide Obstacle")]
 
         [SerializeField]
-        private float slideBarWidth = 1.45f;
+        private float slideBarWidth =
+            1.45f;
 
         [SerializeField]
-        private float slideBarHeight = 0.45f;
+        private float slideBarHeight =
+            0.45f;
 
         [SerializeField]
-        private float slideBarDepth = 0.8f;
+        private float slideBarDepth =
+            0.8f;
 
         [SerializeField]
-        private float slideBarCenterHeight = 1.5f;
+        private float slideBarCenterHeight =
+            1.5f;
 
         // ==================================================
         // LANES
         // ==================================================
 
-        private const float LeftLaneX = -2.5f;
-        private const float CenterLaneX = 0f;
-        private const float RightLaneX = 2.5f;
+        private const float LeftLaneX =
+            -2.5f;
 
-        // Current prototype surface heights.
-        private const float BoulevardSurfaceY = 0f;
-        private const float TrainSurfaceY = 1.2f;
+        private const float CenterLaneX =
+            0f;
+
+        private const float RightLaneX =
+            2.5f;
+
+        // All three ground lanes have
+        // their top surface at Y = 0.
+        private const float GroundSurfaceY =
+            0f;
 
         // ==================================================
         // RUNTIME
         // ==================================================
 
         private TrackSegment[] trackSegments;
+
         private float[] lastSegmentZ;
 
         private Transform player;
@@ -114,6 +137,7 @@ namespace RunningLate
         private GameObject obstacleTemplate;
 
         private Material jumpMaterial;
+
         private Material slideMaterial;
 
         private readonly List<GameObject> pool =
@@ -128,17 +152,21 @@ namespace RunningLate
                 GameObject
             >();
 
-        private readonly HashSet<TrackSegment>
-            pendingSegments =
-                new HashSet<TrackSegment>();
+        private readonly HashSet<
+            TrackSegment
+        > pendingSegments =
+            new HashSet<
+                TrackSegment
+            >();
 
         // ==================================================
-        // UNITY
+        // AWAKE
         // ==================================================
 
         private void Awake()
         {
-            player = FindPlayer();
+            player =
+                FindPlayer();
 
             CreateTemporaryMaterials();
 
@@ -147,10 +175,21 @@ namespace RunningLate
             CreatePool();
         }
 
+        // ==================================================
+        // START
+        // ==================================================
+
         private void Start()
         {
+            if (!enabled)
+            {
+                return;
+            }
+
             trackSegments =
-                Object.FindObjectsByType<TrackSegment>(
+                Object.FindObjectsByType<
+                    TrackSegment
+                >(
                     FindObjectsSortMode.None
                 );
 
@@ -159,10 +198,13 @@ namespace RunningLate
             {
                 Debug.LogError(
                     "ObstacleRandomSpawner: " +
-                    "No TrackSegments were found."
+                    "No TrackSegments were found.",
+                    this
                 );
 
-                enabled = false;
+                enabled =
+                    false;
+
                 return;
             }
 
@@ -177,7 +219,9 @@ namespace RunningLate
             {
                 lastSegmentZ[i] =
                     trackSegments[i]
-                        .transform.position.z;
+                        .transform
+                        .position
+                        .z;
             }
 
             StartCoroutine(
@@ -191,10 +235,17 @@ namespace RunningLate
             }
         }
 
+        // ==================================================
+        // UPDATE
+        // ==================================================
+
         private void Update()
         {
-            if (!enabled)
+            if (!enabled ||
+                trackSegments == null)
+            {
                 return;
+            }
 
             if (GameManager.Instance == null ||
                 !GameManager.Instance.IsRunning)
@@ -209,14 +260,18 @@ namespace RunningLate
                 TrackSegment segment =
                     trackSegments[i];
 
+                if (segment == null)
+                {
+                    continue;
+                }
+
                 float currentZ =
                     segment.transform.position.z;
 
-                // When TrackManager recycles a segment,
-                // its Z suddenly jumps forward.
                 bool wasRecycled =
                     currentZ >
-                    lastSegmentZ[i] + 5f;
+                    lastSegmentZ[i] +
+                    5f;
 
                 if (wasRecycled)
                 {
@@ -260,7 +315,7 @@ namespace RunningLate
         }
 
         // ==================================================
-        // TEMPORARY MATERIALS
+        // MATERIALS
         // ==================================================
 
         private void CreateTemporaryMaterials()
@@ -296,7 +351,6 @@ namespace RunningLate
                 return;
             }
 
-            // Jump obstacle material.
             jumpMaterial =
                 new Material(
                     shader
@@ -313,7 +367,6 @@ namespace RunningLate
                     1f
                 );
 
-            // Slide obstacle material.
             slideMaterial =
                 new Material(
                     shader
@@ -394,7 +447,8 @@ namespace RunningLate
             body.transform.localPosition =
                 new Vector3(
                     0f,
-                    jumpObstacleHeight / 2f,
+                    jumpObstacleHeight /
+                    2f,
                     0f
                 );
 
@@ -412,15 +466,16 @@ namespace RunningLate
 
             if (collider != null)
             {
-                collider.isTrigger = true;
+                collider.isTrigger =
+                    true;
             }
 
-            LethalObstacle jumpHazard =
+            LethalObstacle hazard =
                 body.AddComponent<
                     LethalObstacle
                 >();
 
-            jumpHazard.SetHazardType(
+            hazard.SetHazardType(
                 LethalObstacle
                     .HazardType
                     .Obstacle
@@ -456,10 +511,6 @@ namespace RunningLate
                 root,
                 false
             );
-
-            // ----------------------------------------------
-            // TOP LETHAL BAR
-            // ----------------------------------------------
 
             GameObject topBar =
                 GameObject.CreatePrimitive(
@@ -499,32 +550,28 @@ namespace RunningLate
                     true;
             }
 
-            LethalObstacle slideHazard =
+            LethalObstacle hazard =
                 topBar.AddComponent<
                     LethalObstacle
                 >();
 
-            slideHazard.SetHazardType(
+            hazard.SetHazardType(
                 LethalObstacle
                     .HazardType
                     .Obstacle
             );
 
-            Renderer topRenderer =
+            Renderer renderer =
                 topBar.GetComponent<
                     Renderer
                 >();
 
-            if (topRenderer != null &&
+            if (renderer != null &&
                 slideMaterial != null)
             {
-                topRenderer.sharedMaterial =
+                renderer.sharedMaterial =
                     slideMaterial;
             }
-
-            // ----------------------------------------------
-            // VISUAL POSTS
-            // ----------------------------------------------
 
             CreateSlideGatePost(
                 group.transform,
@@ -536,6 +583,10 @@ namespace RunningLate
                 0.6f
             );
         }
+
+        // ==================================================
+        // SLIDE POSTS
+        // ==================================================
 
         private void CreateSlideGatePost(
             Transform parent,
@@ -578,7 +629,6 @@ namespace RunningLate
 
             if (collider != null)
             {
-                // Posts are visual only.
                 collider.enabled =
                     false;
             }
@@ -614,7 +664,10 @@ namespace RunningLate
 
                 obstacle.name =
                     "Obstacle_Pooled_" +
-                    (i + 1);
+                    (
+                        i +
+                        1
+                    );
 
                 obstacle.SetActive(
                     false
@@ -626,8 +679,7 @@ namespace RunningLate
             }
         }
 
-        private GameObject
-            GetAvailableObstacle()
+        private GameObject GetAvailableObstacle()
         {
             for (int i = 0;
                  i < pool.Count;
@@ -659,8 +711,7 @@ namespace RunningLate
         private IEnumerator
             SpawnInitialObstaclesAfterFrame()
         {
-            // Let Battery and Project Point
-            // spawners choose their locations first.
+            // Let trains and collectibles spawn first.
             yield return null;
 
             for (int i = 0;
@@ -707,7 +758,8 @@ namespace RunningLate
             TrackSegment segment
         )
         {
-            // Let collectibles respawn first.
+            // Let TrainRandomSpawner and
+            // collectibles choose positions first.
             yield return null;
 
             TrySpawnObstacle(
@@ -754,7 +806,6 @@ namespace RunningLate
                     segment
                 );
 
-            // No valid spawn room.
             if (safeMinLocalZ >
                 maxLocalZ)
             {
@@ -769,56 +820,23 @@ namespace RunningLate
                 return false;
             }
 
-            const int maxAttempts = 12;
+            const int maxAttempts =
+                24;
 
             for (int attempt = 0;
                  attempt < maxAttempts;
                  attempt++)
             {
-                // ------------------------------------------
-                // CHOOSE RANDOM LANE
-                // ------------------------------------------
+                // ==================================================
+                // CHOOSE LANE
+                // ==================================================
 
-                int lane =
-                    Random.Range(
-                        0,
-                        3
-                    );
+                float laneX =
+                    GetRandomLaneX();
 
-                float laneX;
-                float surfaceY;
-
-                if (lane == 0)
-                {
-                    // Left train.
-                    laneX =
-                        LeftLaneX;
-
-                    surfaceY =
-                        TrainSurfaceY;
-                }
-                else if (lane == 1)
-                {
-                    // Boulevard.
-                    laneX =
-                        CenterLaneX;
-
-                    surfaceY =
-                        BoulevardSurfaceY;
-                }
-                else
-                {
-                    // Right train.
-                    laneX =
-                        RightLaneX;
-
-                    surfaceY =
-                        TrainSurfaceY;
-                }
-
-                // ------------------------------------------
-                // CHOOSE RANDOM Z
-                // ------------------------------------------
+                // ==================================================
+                // CHOOSE Z
+                // ==================================================
 
                 float localZ =
                     Random.Range(
@@ -826,55 +844,107 @@ namespace RunningLate
                         maxLocalZ
                     );
 
-                // ------------------------------------------
-                // FAIRNESS CHECK
-                // ------------------------------------------
+                Vector3 candidateWorldPosition =
+                    segment.transform.TransformPoint(
+                        new Vector3(
+                            laneX,
+                            GroundSurfaceY,
+                            localZ
+                        )
+                    );
+
+                // ==================================================
+                // IMPORTANT:
+                // NO OBSTACLE WHERE THERE IS A TRAIN
+                // ==================================================
+
+                TrainVehicle train =
+                    TrainVehicle
+                        .FindTrainAtWorldPosition(
+                            candidateWorldPosition.x,
+                            candidateWorldPosition.z
+                        );
+
+                if (train != null)
+                {
+                    continue;
+                }
+
+                // ==================================================
+                // FAIRNESS
+                // ==================================================
 
                 if (!IsSpawnPositionFair(
                         segment,
                         laneX,
-                        localZ
+                        localZ,
+                        candidateWorldPosition
                     ))
                 {
                     continue;
                 }
 
-                // ------------------------------------------
-                // PLACE
-                // ------------------------------------------
+                // ==================================================
+                // PLACE ON GROUND ONLY
+                // ==================================================
 
                 PlaceObstacle(
                     obstacle,
                     segment,
                     laneX,
-                    surfaceY,
                     localZ
                 );
 
                 activeObstacleBySegment[
                     segment
-                ] = obstacle;
+                ] =
+                    obstacle;
 
                 return true;
             }
 
-            // No fair position was found.
             return false;
         }
 
         // ==================================================
-        // FAIR SPAWNING
+        // RANDOM LANE
+        // ==================================================
+
+        private float GetRandomLaneX()
+        {
+            int lane =
+                Random.Range(
+                    0,
+                    3
+                );
+
+            if (lane == 0)
+            {
+                return LeftLaneX;
+            }
+
+            if (lane == 1)
+            {
+                return CenterLaneX;
+            }
+
+            return RightLaneX;
+        }
+
+        // ==================================================
+        // FAIR SPAWN
         // ==================================================
 
         private bool IsSpawnPositionFair(
             TrackSegment segment,
             float laneX,
-            float localZ
+            float localZ,
+            Vector3 candidateWorldPosition
         )
         {
-            // ----------------------------------------------
-            // 1. DO NOT SPAWN ON BATTERY / +5
-            // ----------------------------------------------
+            // ==================================================
+            // 1. DON'T SPAWN ON BATTERY / +5
+            // ==================================================
 
             if (SpawnSafetyUtility
                 .IsPickupTooClose(
@@ -887,20 +957,9 @@ namespace RunningLate
                 return false;
             }
 
-            // Convert candidate position
-            // into world coordinates.
-            Vector3 candidateWorldPosition =
-                segment.transform.TransformPoint(
-                    new Vector3(
-                        laneX,
-                        0f,
-                        localZ
-                    )
-                );
-
-            // ----------------------------------------------
-            // 2. KEEP DISTANCE FROM OTHER HAZARDS
-            // ----------------------------------------------
+            // ==================================================
+            // 2. DISTANCE FROM OTHER OBSTACLES
+            // ==================================================
 
             if (SpawnSafetyUtility
                 .IsHazardTooClose(
@@ -912,9 +971,9 @@ namespace RunningLate
                 return false;
             }
 
-            // ----------------------------------------------
-            // 3. NEVER BLOCK ALL THREE LANES
-            // ----------------------------------------------
+            // ==================================================
+            // 3. DON'T BLOCK ALL THREE LANES
+            // ==================================================
 
             if (SpawnSafetyUtility
                 .WouldBlockAllLanes(
@@ -926,7 +985,99 @@ namespace RunningLate
                 return false;
             }
 
+            // ==================================================
+            // 4. TRAINS + THIS OBSTACLE MUST
+            //    LEAVE AT LEAST ONE FREE LANE
+            // ==================================================
+
+            if (WouldObstaclePlusTrainsBlockAllLanes(
+                    candidateWorldPosition,
+                    laneX
+                ))
+            {
+                return false;
+            }
+
             return true;
+        }
+
+        // ==================================================
+        // TRAIN FAIRNESS
+        // ==================================================
+
+        private bool
+            WouldObstaclePlusTrainsBlockAllLanes(
+                Vector3 candidateWorldPosition,
+                float obstacleLaneX
+            )
+        {
+            bool leftBlocked =
+                Mathf.Abs(
+                    obstacleLaneX -
+                    LeftLaneX
+                ) <
+                0.75f;
+
+            bool centerBlocked =
+                Mathf.Abs(
+                    obstacleLaneX -
+                    CenterLaneX
+                ) <
+                0.75f;
+
+            bool rightBlocked =
+                Mathf.Abs(
+                    obstacleLaneX -
+                    RightLaneX
+                ) <
+                0.75f;
+
+            // ==================================================
+            // LEFT TRAIN?
+            // ==================================================
+
+            TrainVehicle leftTrain =
+                TrainVehicle
+                    .FindTrainAtWorldPosition(
+                        LeftLaneX,
+                        candidateWorldPosition.z
+                    );
+
+            if (leftTrain != null)
+            {
+                leftBlocked =
+                    true;
+            }
+
+            // ==================================================
+            // CENTER
+            //
+            // Trains currently only use
+            // left/right, so center remains
+            // based on obstacle hazards.
+            // ==================================================
+
+            // ==================================================
+            // RIGHT TRAIN?
+            // ==================================================
+
+            TrainVehicle rightTrain =
+                TrainVehicle
+                    .FindTrainAtWorldPosition(
+                        RightLaneX,
+                        candidateWorldPosition.z
+                    );
+
+            if (rightTrain != null)
+            {
+                rightBlocked =
+                    true;
+            }
+
+            return
+                leftBlocked &&
+                centerBlocked &&
+                rightBlocked;
         }
 
         // ==================================================
@@ -937,7 +1088,6 @@ namespace RunningLate
             GameObject obstacle,
             TrackSegment segment,
             float laneX,
-            float surfaceY,
             float localZ
         )
         {
@@ -946,10 +1096,12 @@ namespace RunningLate
                 false
             );
 
+            // IMPORTANT:
+            // Always ground level.
             obstacle.transform.localPosition =
                 new Vector3(
                     laneX,
-                    surfaceY,
+                    GroundSurfaceY,
                     localZ
                 );
 
@@ -970,7 +1122,8 @@ namespace RunningLate
                 );
 
             bool createJumpObstacle =
-                Random.value < 0.5f;
+                Random.value <
+                0.5f;
 
             if (jumpBarrier != null)
             {
@@ -989,22 +1142,15 @@ namespace RunningLate
             obstacle.SetActive(
                 true
             );
-
-            Debug.Log(
-                createJumpObstacle
-                    ? "Jump obstacle spawned."
-                    : "Slide obstacle spawned."
-            );
         }
 
         // ==================================================
         // SAFE DISTANCE AHEAD
         // ==================================================
 
-        private float
-            CalculateSafeMinimumLocalZ(
-                TrackSegment segment
-            )
+        private float CalculateSafeMinimumLocalZ(
+            TrackSegment segment
+        )
         {
             float minimumWorldZ =
                 player.position.z +
@@ -1021,7 +1167,8 @@ namespace RunningLate
                 segment.transform
                     .InverseTransformPoint(
                         minimumWorldPosition
-                    ).z;
+                    )
+                    .z;
 
             return Mathf.Max(
                 minLocalZ,
@@ -1095,8 +1242,7 @@ namespace RunningLate
         {
             ReleaseAllObstacles();
 
-            // Give TrackManager, Battery and
-            // Project Point spawners time to reset.
+            // Track, trains and collectibles first.
             yield return null;
             yield return null;
 
@@ -1106,7 +1252,9 @@ namespace RunningLate
             {
                 lastSegmentZ[i] =
                     trackSegments[i]
-                        .transform.position.z;
+                        .transform
+                        .position
+                        .z;
             }
 
             for (int i = 0;
