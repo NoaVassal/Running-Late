@@ -4,7 +4,7 @@ namespace RunningLate
 {
     public class TrackManager : MonoBehaviour
     {
-        private const int SegmentCount = 3;
+        private const int SegmentCount = 5;
 
         [Header("Configuration")]
         [SerializeField] private GameConfig config;
@@ -137,7 +137,7 @@ namespace RunningLate
                 trackSegments.Length != SegmentCount)
             {
                 Debug.LogError(
-                    "TrackManager: Exactly 3 track segments are required.",
+                    "TrackManager: Exactly 5 track segments are required.",
                     this
                 );
                 return false;
