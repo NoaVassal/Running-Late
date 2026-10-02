@@ -608,7 +608,6 @@ GameObject:
   - component: {fileID: 371313050}
   - component: {fileID: 371313052}
   - component: {fileID: 371313053}
-  - component: {fileID: 371313054}
   - component: {fileID: 371313055}
   m_Layer: 0
   m_Name: TrackManager
@@ -698,18 +697,6 @@ MonoBehaviour:
   gapLength: 3
   triggerHeight: 0.3
   poolSize: 5
---- !u!114 &371313054
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 371313049}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 8b6cda1e5286c1f429613488e2922e44, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::RunningLate.TrainRandomSpawner
 --- !u!114 &371313055
 MonoBehaviour:
   m_ObjectHideFlags: 0
