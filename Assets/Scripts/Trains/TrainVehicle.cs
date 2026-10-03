@@ -16,27 +16,20 @@ namespace RunningLate
         // ACTIVE TRAINS
         // ==================================================
 
-        private static readonly List<TrainVehicle>
-            activeTrains =
-                new List<TrainVehicle>();
+        private static readonly List<TrainVehicle> activeTrains =
+            new List<TrainVehicle>();
 
         // ==================================================
-        // TYPE
+        // TYPE / SIZE
         // ==================================================
 
         [SerializeField]
         private TrainType trainType;
 
-        // ==================================================
-        // TRAIN DATA
-        // ==================================================
-
         private float laneX;
-
         private float trainWidth;
         private float trainHeight;
         private float trainLength;
-
         private float rampLength;
         private float boardingZoneLength;
 
@@ -47,66 +40,87 @@ namespace RunningLate
         [Header("Ramp Entry")]
 
         [SerializeField]
-        private float groundRampEntryLength =
-            1.6f;
+        private float groundRampEntryLength = 1.6f;
 
         [SerializeField]
-        private float rampEntryFrontTolerance =
-            0.45f;
+        private float rampEntryFrontTolerance = 0.45f;
 
         // ==================================================
-        // OBJECTS
+        // INDEPENDENT TRAIN MOVEMENT
+        // ==================================================
+
+        private float approachWorldSpeed = 38f;
+        private float boardableWorldSpeed = 17.5f;
+        private float slowdownStartFrontDistance = 18f;
+        private float boardableFrontDistance = 2.5f;
+
+        private float independentWorldZ = 0f;
+        private bool independentMovementInitialized = false;
+
+        private Transform playerTransform;
+
+        // ==================================================
+        // SAME-LANE TRAIN SPACING
+        // ==================================================
+
+        // Adjacent track segments are 30 units long and each train is
+        // 21 units long, so the natural visual gap is 9 units.
+        // Independent approach movement used to let a rear train catch
+        // a slower train near the player. This minimum gap prevents
+        // trains in the same lane from joining into one long train.
+        private const float MinimumSameLaneTrainGap = 9f;
+
+        private const float SameLaneTolerance = 0.20f;
+
+        // ==================================================
+        // VISUAL PREFABS
+        // ==================================================
+
+        private GameObject normalTrainVisualPrefab;
+        private GameObject rampTrainVisualPrefab;
+
+        private GameObject visualModel;
+        private GameObject currentVisualSourcePrefab;
+
+        private float visualYawOffset = 0f;
+        private Vector3 visualScaleMultiplier = Vector3.one;
+        private Vector3 visualPositionOffset = Vector3.zero;
+
+        // ==================================================
+        // PHYSICS OBJECTS
         // ==================================================
 
         private GameObject body;
-
-        private GameObject rampVisual;
+        private Renderer bodyRenderer;
 
         private GameObject rampSupportsRoot;
 
         private GameObject frontHitZone;
-
         private GameObject leftSideHitZone;
-
         private GameObject rightSideHitZone;
-
-        // ==================================================
-        // RENDERERS
-        // ==================================================
-
-        private Renderer bodyRenderer;
-
-        private Renderer rampRenderer;
 
         // ==================================================
         // MATERIALS
         // ==================================================
 
         private Material rampMaterial;
-
         private Material blockingMaterial;
 
         // ==================================================
         // SIDE HIT
         // ==================================================
 
-        private int sideHitCount =
-            0;
+        private int sideHitCount = 0;
+        private float lastSideHitTime = -100f;
 
-        private float lastSideHitTime =
-            -100f;
-
-        private const float
-            SideHitCooldown = 0.20f;
+        private const float SideHitCooldown = 0.20f;
 
         [Header("Side Hit")]
 
         [SerializeField]
-        private float secondHitGameOverDelay =
-            0.22f;
+        private float secondHitGameOverDelay = 0.22f;
 
-        private bool secondHitPending =
-            false;
+        private bool secondHitPending = false;
 
         // ==================================================
         // RAMP PHYSICS
@@ -116,25 +130,18 @@ namespace RunningLate
 
         [SerializeField]
         [Range(16, 48)]
-        private int rampPhysicsSteps =
-            32;
+        private int rampPhysicsSteps = 32;
 
         [SerializeField]
-        private float rampColliderOverlap =
-            0.12f;
+        private float rampColliderOverlap = 0.12f;
 
         // ==================================================
         // PUBLIC
         // ==================================================
 
-        public float LaneX =>
-            laneX;
-
-        public float RoofHeight =>
-            trainHeight;
-
-        public TrainType Type =>
-            trainType;
+        public float LaneX => laneX;
+        public float RoofHeight => trainHeight;
+        public TrainType Type => trainType;
 
         // ==================================================
         // UNITY
@@ -144,32 +151,228 @@ namespace RunningLate
         {
             if (!activeTrains.Contains(this))
             {
-                activeTrains.Add(
-                    this
-                );
+                activeTrains.Add(this);
             }
 
-            secondHitPending =
-                false;
+            secondHitPending = false;
         }
 
         private void OnDisable()
         {
-            activeTrains.Remove(
-                this
-            );
+            activeTrains.Remove(this);
 
             StopAllCoroutines();
 
-            secondHitPending =
-                false;
+            secondHitPending = false;
         }
 
         private void OnDestroy()
         {
-            activeTrains.Remove(
-                this
-            );
+            activeTrains.Remove(this);
+        }
+
+        private void LateUpdate()
+        {
+            UpdateIndependentMovement();
+        }
+
+        // ==================================================
+        // INDEPENDENT MOVEMENT
+        // ==================================================
+
+        private void UpdateIndependentMovement()
+        {
+            if (GameManager.Instance == null ||
+                !GameManager.Instance.IsRunning)
+            {
+                return;
+            }
+
+            if (!independentMovementInitialized)
+            {
+                independentWorldZ = transform.position.z;
+                independentMovementInitialized = true;
+            }
+
+            if (playerTransform == null)
+            {
+                PlayerController player =
+                    Object.FindFirstObjectByType<PlayerController>();
+
+                if (player == null)
+                {
+                    return;
+                }
+
+                playerTransform = player.transform;
+            }
+
+            float trainFrontWorldZ =
+                independentWorldZ -
+                trainLength / 2f;
+
+            float frontDistanceToPlayer =
+                trainFrontWorldZ -
+                playerTransform.position.z;
+
+            float worldSpeed;
+
+            if (frontDistanceToPlayer >=
+                slowdownStartFrontDistance)
+            {
+                worldSpeed =
+                    approachWorldSpeed;
+            }
+            else if (frontDistanceToPlayer <=
+                     boardableFrontDistance)
+            {
+                worldSpeed =
+                    boardableWorldSpeed;
+            }
+            else
+            {
+                float t =
+                    Mathf.InverseLerp(
+                        boardableFrontDistance,
+                        slowdownStartFrontDistance,
+                        frontDistanceToPlayer
+                    );
+
+                t =
+                    Mathf.SmoothStep(
+                        0f,
+                        1f,
+                        t
+                    );
+
+                worldSpeed =
+                    Mathf.Lerp(
+                        boardableWorldSpeed,
+                        approachWorldSpeed,
+                        t
+                    );
+            }
+
+            float proposedWorldZ =
+                independentWorldZ -
+                worldSpeed *
+                Time.deltaTime;
+
+            independentWorldZ =
+                KeepSafeDistanceFromTrainAhead(
+                    proposedWorldZ
+                );
+
+            Vector3 worldPosition =
+                transform.position;
+
+            worldPosition.z =
+                independentWorldZ;
+
+            transform.position =
+                worldPosition;
+        }
+
+        // ==================================================
+        // SAME-LANE SEPARATION
+        // ==================================================
+
+        private float KeepSafeDistanceFromTrainAhead(
+            float proposedWorldZ
+        )
+        {
+            float currentWorldZ =
+                independentWorldZ;
+
+            bool foundTrainAhead =
+                false;
+
+            float minimumAllowedWorldZ =
+                float.NegativeInfinity;
+
+            for (int i = 0;
+                 i < activeTrains.Count;
+                 i++)
+            {
+                TrainVehicle other =
+                    activeTrains[i];
+
+                if (other == null ||
+                    other == this ||
+                    !other.isActiveAndEnabled)
+                {
+                    continue;
+                }
+
+                if (Mathf.Abs(
+                        other.laneX -
+                        laneX
+                    ) >
+                    SameLaneTolerance)
+                {
+                    continue;
+                }
+
+                float otherWorldZ =
+                    other.transform.position.z;
+
+                // Trains move toward smaller world-Z values.
+                // Therefore a train with a smaller Z is ahead.
+                if (otherWorldZ >=
+                    currentWorldZ -
+                    0.01f)
+                {
+                    continue;
+                }
+
+                float requiredCenterDistance =
+                    trainLength /
+                    2f +
+                    other.trainLength /
+                    2f +
+                    MinimumSameLaneTrainGap;
+
+                float allowedWorldZ =
+                    otherWorldZ +
+                    requiredCenterDistance;
+
+                if (!foundTrainAhead ||
+                    allowedWorldZ >
+                    minimumAllowedWorldZ)
+                {
+                    minimumAllowedWorldZ =
+                        allowedWorldZ;
+
+                    foundTrainAhead =
+                        true;
+                }
+            }
+
+            if (!foundTrainAhead)
+            {
+                return
+                    proposedWorldZ;
+            }
+
+            if (proposedWorldZ >=
+                minimumAllowedWorldZ)
+            {
+                return
+                    proposedWorldZ;
+            }
+
+            // If trains are already closer than the minimum gap,
+            // do not teleport the rear train backward.
+            // Hold it in place until the train ahead opens the gap.
+            if (currentWorldZ <
+                minimumAllowedWorldZ)
+            {
+                return
+                    currentWorldZ;
+            }
+
+            return
+                minimumAllowedWorldZ;
         }
 
         // ==================================================
@@ -184,7 +387,16 @@ namespace RunningLate
             float newBoardingZoneLength,
             int groundLayer,
             Material blueMaterial,
-            Material redMaterial
+            Material redMaterial,
+            GameObject newNormalTrainVisualPrefab,
+            GameObject newRampTrainVisualPrefab,
+            float newVisualYawOffset,
+            Vector3 newVisualScaleMultiplier,
+            Vector3 newVisualPositionOffset,
+            float newApproachWorldSpeed,
+            float newBoardableWorldSpeed,
+            float newSlowdownStartFrontDistance,
+            float newBoardableFrontDistance
         )
         {
             if (body != null)
@@ -192,14 +404,9 @@ namespace RunningLate
                 return;
             }
 
-            trainWidth =
-                width;
-
-            trainHeight =
-                height;
-
-            trainLength =
-                length;
+            trainWidth = width;
+            trainHeight = height;
+            trainLength = length;
 
             rampLength =
                 Mathf.Clamp(
@@ -217,84 +424,53 @@ namespace RunningLate
             blockingMaterial =
                 redMaterial;
 
-            // ==================================================
-            // BODY
-            // ==================================================
+            normalTrainVisualPrefab =
+                newNormalTrainVisualPrefab;
 
-            body =
-                GameObject.CreatePrimitive(
-                    PrimitiveType.Cube
+            rampTrainVisualPrefab =
+                newRampTrainVisualPrefab;
+
+            visualYawOffset =
+                newVisualYawOffset;
+
+            visualScaleMultiplier =
+                newVisualScaleMultiplier;
+
+            visualPositionOffset =
+                newVisualPositionOffset;
+
+            approachWorldSpeed =
+                Mathf.Max(
+                    0f,
+                    newApproachWorldSpeed
                 );
 
-            body.name =
-                "TrainBody";
-
-            body.transform.SetParent(
-                transform,
-                false
-            );
-
-            body.layer =
-                groundLayer;
-
-            bodyRenderer =
-                body.GetComponent<Renderer>();
-
-            // ==================================================
-            // VISIBLE RAMP
-            // ==================================================
-
-            rampVisual =
-                GameObject.CreatePrimitive(
-                    PrimitiveType.Cube
+            boardableWorldSpeed =
+                Mathf.Max(
+                    0f,
+                    newBoardableWorldSpeed
                 );
 
-            rampVisual.name =
-                "TrainRampVisual";
-
-            rampVisual.transform.SetParent(
-                transform,
-                false
-            );
-
-            rampVisual.layer =
-                groundLayer;
-
-            rampRenderer =
-                rampVisual.GetComponent<Renderer>();
-
-            BoxCollider rampVisualCollider =
-                rampVisual.GetComponent<BoxCollider>();
-
-            if (rampVisualCollider != null)
-            {
-                rampVisualCollider.enabled =
-                    false;
-            }
-
-            // ==================================================
-            // SOLID RAMP
-            // ==================================================
-
-            rampSupportsRoot =
-                new GameObject(
-                    "RampSolidPhysics"
+            slowdownStartFrontDistance =
+                Mathf.Max(
+                    0f,
+                    newSlowdownStartFrontDistance
                 );
 
-            rampSupportsRoot
-                .transform
-                .SetParent(
-                    transform,
-                    false
+            boardableFrontDistance =
+                Mathf.Clamp(
+                    newBoardableFrontDistance,
+                    0f,
+                    slowdownStartFrontDistance
                 );
 
-            BuildSolidRampPhysics(
+            CreatePhysicsBody(
                 groundLayer
             );
 
-            // ==================================================
-            // HIT ZONES
-            // ==================================================
+            CreateSolidRampPhysics(
+                groundLayer
+            );
 
             frontHitZone =
                 CreateHitZone(
@@ -316,13 +492,57 @@ namespace RunningLate
         }
 
         // ==================================================
-        // BUILD SOLID RAMP PHYSICS
+        // PHYSICS BODY
         // ==================================================
 
-        private void BuildSolidRampPhysics(
+        private void CreatePhysicsBody(
             int groundLayer
         )
         {
+            body =
+                GameObject.CreatePrimitive(
+                    PrimitiveType.Cube
+                );
+
+            body.name =
+                "TrainBodyPhysics";
+
+            body.transform.SetParent(
+                transform,
+                false
+            );
+
+            body.layer =
+                groundLayer;
+
+            bodyRenderer =
+                body.GetComponent<Renderer>();
+
+            if (bodyRenderer != null)
+            {
+                bodyRenderer.enabled =
+                    false;
+            }
+        }
+
+        // ==================================================
+        // SOLID RAMP PHYSICS
+        // ==================================================
+
+        private void CreateSolidRampPhysics(
+            int groundLayer
+        )
+        {
+            rampSupportsRoot =
+                new GameObject(
+                    "RampSolidPhysics"
+                );
+
+            rampSupportsRoot.transform.SetParent(
+                transform,
+                false
+            );
+
             int steps =
                 Mathf.Max(
                     16,
@@ -342,10 +562,7 @@ namespace RunningLate
                  i++)
             {
                 float progress =
-                    (
-                        i +
-                        1f
-                    ) /
+                    (i + 1f) /
                     steps;
 
                 float stepHeight =
@@ -359,10 +576,7 @@ namespace RunningLate
 
                 step.name =
                     "RampSolidStep_" +
-                    (
-                        i +
-                        1
-                    );
+                    (i + 1);
 
                 step.transform.SetParent(
                     rampSupportsRoot.transform,
@@ -375,16 +589,12 @@ namespace RunningLate
                 float stepZ =
                     rampStartZ +
                     stepDepth *
-                    (
-                        i +
-                        0.5f
-                    );
+                    (i + 0.5f);
 
                 step.transform.localPosition =
                     new Vector3(
                         0f,
-                        stepHeight /
-                        2f,
+                        stepHeight / 2f,
                         stepZ
                     );
 
@@ -393,8 +603,7 @@ namespace RunningLate
 
                 step.transform.localScale =
                     new Vector3(
-                        trainWidth +
-                        0.12f,
+                        trainWidth + 0.12f,
                         stepHeight,
                         stepDepth +
                         rampColliderOverlap
@@ -424,7 +633,337 @@ namespace RunningLate
         }
 
         // ==================================================
-        // CREATE HIT ZONE
+        // VISUAL MODEL
+        // ==================================================
+
+        private void EnsureVisualModel()
+        {
+            GameObject desiredPrefab =
+                trainType == TrainType.Ramp &&
+                rampTrainVisualPrefab != null
+                    ? rampTrainVisualPrefab
+                    : normalTrainVisualPrefab;
+
+            if (desiredPrefab == null)
+            {
+                if (visualModel != null)
+                {
+                    Destroy(
+                        visualModel
+                    );
+
+                    visualModel =
+                        null;
+
+                    currentVisualSourcePrefab =
+                        null;
+                }
+
+                return;
+            }
+
+            if (visualModel != null &&
+                currentVisualSourcePrefab ==
+                desiredPrefab)
+            {
+                ConfigureVisualModelTransform();
+                return;
+            }
+
+            if (visualModel != null)
+            {
+                Destroy(
+                    visualModel
+                );
+            }
+
+            visualModel =
+                Instantiate(
+                    desiredPrefab,
+                    transform
+                );
+
+            visualModel.name =
+                desiredPrefab.name +
+                "_RuntimeVisual";
+
+            currentVisualSourcePrefab =
+                desiredPrefab;
+
+            DisableVisualPhysics(
+                visualModel
+            );
+
+            ConfigureVisualModelTransform();
+        }
+
+        private void DisableVisualPhysics(
+            GameObject root
+        )
+        {
+            Collider[] colliders =
+                root.GetComponentsInChildren<Collider>(
+                    true
+                );
+
+            for (int i = 0;
+                 i < colliders.Length;
+                 i++)
+            {
+                colliders[i].enabled =
+                    false;
+            }
+
+            Rigidbody[] rigidbodies =
+                root.GetComponentsInChildren<Rigidbody>(
+                    true
+                );
+
+            for (int i = 0;
+                 i < rigidbodies.Length;
+                 i++)
+            {
+                rigidbodies[i].isKinematic =
+                    true;
+
+                rigidbodies[i].detectCollisions =
+                    false;
+
+                rigidbodies[i].useGravity =
+                    false;
+            }
+        }
+
+        private void ConfigureVisualModelTransform()
+        {
+            if (visualModel == null)
+            {
+                return;
+            }
+
+            visualModel.SetActive(
+                true
+            );
+
+            visualModel.transform.localPosition =
+                Vector3.zero;
+
+            visualModel.transform.localRotation =
+                Quaternion.identity;
+
+            visualModel.transform.localScale =
+                Vector3.one;
+
+            Bounds initialBounds;
+
+            if (!TryGetRendererBoundsRelativeTo(
+                    visualModel.transform,
+                    transform,
+                    out initialBounds
+                ))
+            {
+                return;
+            }
+
+            float autoYaw =
+                initialBounds.size.x >
+                initialBounds.size.z
+                    ? 90f
+                    : 0f;
+
+            visualModel.transform.localRotation =
+                Quaternion.Euler(
+                    0f,
+                    autoYaw +
+                    visualYawOffset,
+                    0f
+                );
+
+            Bounds rotatedBounds;
+
+            if (!TryGetRendererBoundsRelativeTo(
+                    visualModel.transform,
+                    transform,
+                    out rotatedBounds
+                ))
+            {
+                return;
+            }
+
+            float scaleX =
+                SafeScale(
+                    trainWidth,
+                    rotatedBounds.size.x
+                );
+
+            float scaleY =
+                SafeScale(
+                    trainHeight,
+                    rotatedBounds.size.y
+                );
+
+            float scaleZ =
+                SafeScale(
+                    trainLength,
+                    rotatedBounds.size.z
+                );
+
+            visualModel.transform.localScale =
+                new Vector3(
+                    scaleX *
+                    Mathf.Max(
+                        0.01f,
+                        visualScaleMultiplier.x
+                    ),
+                    scaleY *
+                    Mathf.Max(
+                        0.01f,
+                        visualScaleMultiplier.y
+                    ),
+                    scaleZ *
+                    Mathf.Max(
+                        0.01f,
+                        visualScaleMultiplier.z
+                    )
+                );
+
+            Bounds fittedBounds;
+
+            if (!TryGetRendererBoundsRelativeTo(
+                    visualModel.transform,
+                    transform,
+                    out fittedBounds
+                ))
+            {
+                return;
+            }
+
+            Vector3 correction =
+                new Vector3(
+                    -fittedBounds.center.x,
+                    -fittedBounds.min.y,
+                    -fittedBounds.center.z
+                );
+
+            visualModel.transform.localPosition =
+                correction +
+                visualPositionOffset;
+        }
+
+        private float SafeScale(
+            float target,
+            float current
+        )
+        {
+            if (current <= 0.0001f)
+            {
+                return 1f;
+            }
+
+            return
+                target /
+                current;
+        }
+
+        private bool TryGetRendererBoundsRelativeTo(
+            Transform visualRoot,
+            Transform reference,
+            out Bounds combinedBounds
+        )
+        {
+            Renderer[] renderers =
+                visualRoot.GetComponentsInChildren<Renderer>(
+                    true
+                );
+
+            bool hasBounds =
+                false;
+
+            combinedBounds =
+                new Bounds();
+
+            for (int i = 0;
+                 i < renderers.Length;
+                 i++)
+            {
+                Renderer renderer =
+                    renderers[i];
+
+                if (renderer == null)
+                {
+                    continue;
+                }
+
+                Bounds localBounds =
+                    renderer.localBounds;
+
+                Vector3 center =
+                    localBounds.center;
+
+                Vector3 extents =
+                    localBounds.extents;
+
+                for (int x = -1;
+                     x <= 1;
+                     x += 2)
+                {
+                    for (int y = -1;
+                         y <= 1;
+                         y += 2)
+                    {
+                        for (int z = -1;
+                             z <= 1;
+                             z += 2)
+                        {
+                            Vector3 rendererLocalCorner =
+                                center +
+                                Vector3.Scale(
+                                    extents,
+                                    new Vector3(
+                                        x,
+                                        y,
+                                        z
+                                    )
+                                );
+
+                            Vector3 worldCorner =
+                                renderer.transform.TransformPoint(
+                                    rendererLocalCorner
+                                );
+
+                            Vector3 referenceLocalCorner =
+                                reference.InverseTransformPoint(
+                                    worldCorner
+                                );
+
+                            if (!hasBounds)
+                            {
+                                combinedBounds =
+                                    new Bounds(
+                                        referenceLocalCorner,
+                                        Vector3.zero
+                                    );
+
+                                hasBounds =
+                                    true;
+                            }
+                            else
+                            {
+                                combinedBounds.Encapsulate(
+                                    referenceLocalCorner
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+
+            return
+                hasBounds;
+        }
+
+        // ==================================================
+        // HIT ZONES
         // ==================================================
 
         private GameObject CreateHitZone(
@@ -483,6 +1022,12 @@ namespace RunningLate
             secondHitPending =
                 false;
 
+            independentWorldZ =
+                transform.position.z;
+
+            independentMovementInitialized =
+                true;
+
             if (trainType ==
                 TrainType.Ramp)
             {
@@ -494,10 +1039,12 @@ namespace RunningLate
             }
 
             ConfigureSideZones();
+
+            EnsureVisualModel();
         }
 
         // ==================================================
-        // BLUE TRAIN
+        // RAMP TRAIN
         // ==================================================
 
         private void ConfigureRampTrain()
@@ -509,10 +1056,8 @@ namespace RunningLate
             body.transform.localPosition =
                 new Vector3(
                     0f,
-                    trainHeight /
-                    2f,
-                    rampLength /
-                    2f
+                    trainHeight / 2f,
+                    rampLength / 2f
                 );
 
             body.transform.localRotation =
@@ -524,66 +1069,6 @@ namespace RunningLate
                     trainHeight,
                     bodyLength
                 );
-
-            if (bodyRenderer != null)
-            {
-                bodyRenderer.sharedMaterial =
-                    rampMaterial;
-            }
-
-            // ==================================================
-            // RAMP VISUAL
-            // ==================================================
-
-            float slopeLength =
-                Mathf.Sqrt(
-                    rampLength *
-                    rampLength +
-                    trainHeight *
-                    trainHeight
-                );
-
-            float slopeAngle =
-                Mathf.Atan2(
-                    trainHeight,
-                    rampLength
-                ) *
-                Mathf.Rad2Deg;
-
-            rampVisual.transform.localPosition =
-                new Vector3(
-                    0f,
-                    trainHeight /
-                    2f,
-                    -trainLength /
-                    2f +
-                    rampLength /
-                    2f
-                );
-
-            rampVisual.transform.localRotation =
-                Quaternion.Euler(
-                    -slopeAngle,
-                    0f,
-                    0f
-                );
-
-            rampVisual.transform.localScale =
-                new Vector3(
-                    trainWidth,
-                    0.18f,
-                    slopeLength
-                );
-
-            rampVisual.SetActive(
-                true
-            );
-
-            if (rampRenderer != null)
-            {
-                rampRenderer.sharedMaterial =
-                    rampMaterial;
-            }
 
             if (rampSupportsRoot != null)
             {
@@ -598,7 +1083,7 @@ namespace RunningLate
         }
 
         // ==================================================
-        // RED TRAIN
+        // BLOCKING TRAIN
         // ==================================================
 
         private void ConfigureBlockingTrain()
@@ -606,8 +1091,7 @@ namespace RunningLate
             body.transform.localPosition =
                 new Vector3(
                     0f,
-                    trainHeight /
-                    2f,
+                    trainHeight / 2f,
                     0f
                 );
 
@@ -621,16 +1105,6 @@ namespace RunningLate
                     trainLength
                 );
 
-            if (bodyRenderer != null)
-            {
-                bodyRenderer.sharedMaterial =
-                    blockingMaterial;
-            }
-
-            rampVisual.SetActive(
-                false
-            );
-
             if (rampSupportsRoot != null)
             {
                 rampSupportsRoot.SetActive(
@@ -642,31 +1116,23 @@ namespace RunningLate
                 true
             );
 
-            frontHitZone
-                .transform
-                .localPosition =
+            frontHitZone.transform.localPosition =
                 new Vector3(
                     0f,
-                    trainHeight /
-                    2f,
-                    -trainLength /
-                    2f -
+                    trainHeight / 2f,
+                    -trainLength / 2f -
                     0.15f
                 );
 
-            frontHitZone
-                .transform
-                .localRotation =
+            frontHitZone.transform.localRotation =
                 Quaternion.identity;
 
             BoxCollider frontCollider =
-                frontHitZone
-                    .GetComponent<BoxCollider>();
+                frontHitZone.GetComponent<BoxCollider>();
 
             frontCollider.size =
                 new Vector3(
-                    trainWidth *
-                    0.95f,
+                    trainWidth * 0.95f,
                     trainHeight,
                     0.5f
                 );
@@ -733,10 +1199,6 @@ namespace RunningLate
             );
         }
 
-        // ==================================================
-        // CONFIGURE SIDE ZONE
-        // ==================================================
-
         private void ConfigureSideZone(
             GameObject zone,
             float x,
@@ -747,8 +1209,7 @@ namespace RunningLate
             zone.transform.localPosition =
                 new Vector3(
                     x,
-                    trainHeight /
-                    2f,
+                    trainHeight / 2f,
                     z
                 );
 
@@ -761,8 +1222,7 @@ namespace RunningLate
             collider.size =
                 new Vector3(
                     0.45f,
-                    trainHeight +
-                    1f,
+                    trainHeight + 1f,
                     depth
                 );
 
@@ -790,10 +1250,9 @@ namespace RunningLate
                 return;
             }
 
-            GameManager.Instance
-                .TriggerGameOver(
-                    "Hit train front"
-                );
+            GameManager.Instance.TriggerGameOver(
+                "Hit train front"
+            );
         }
 
         // ==================================================
@@ -809,17 +1268,7 @@ namespace RunningLate
                 return;
             }
 
-            // ==================================================
-            // IMPORTANT FIX
-            //
-            // If the player is intentionally walking
-            // OFF THIS train, the side trigger must NOT
-            // push her back onto the roof.
-            // ==================================================
-
-            if (player.IsExitingFromTrain(
-                    this
-                ))
+            if (player.IsExitingFromTrain(this))
             {
                 return;
             }
@@ -852,10 +1301,6 @@ namespace RunningLate
                 sideHitCount
             );
 
-            // ==================================================
-            // FIRST SIDE HIT
-            // ==================================================
-
             if (sideHitCount == 1)
             {
                 player.HandleTrainSideHit(
@@ -864,10 +1309,6 @@ namespace RunningLate
 
                 return;
             }
-
-            // ==================================================
-            // SECOND SIDE HIT
-            // ==================================================
 
             secondHitPending =
                 true;
@@ -881,12 +1322,7 @@ namespace RunningLate
             );
         }
 
-        // ==================================================
-        // SECOND SIDE HIT GAME OVER
-        // ==================================================
-
-        private IEnumerator
-            SecondSideHitGameOver()
+        private IEnumerator SecondSideHitGameOver()
         {
             yield return
                 new WaitForSeconds(
@@ -903,14 +1339,13 @@ namespace RunningLate
                 yield break;
             }
 
-            GameManager.Instance
-                .TriggerGameOver(
-                    "Hit train side twice"
-                );
+            GameManager.Instance.TriggerGameOver(
+                "Hit train side twice"
+            );
         }
 
         // ==================================================
-        // CONTAINS WORLD Z
+        // POSITION HELPERS
         // ==================================================
 
         public bool ContainsWorldZ(
@@ -925,10 +1360,6 @@ namespace RunningLate
                 trainLength /
                 2f;
         }
-
-        // ==================================================
-        // BLUE RAMP BOARDING
-        // ==================================================
 
         public bool IsRampBoardingWorldZ(
             float worldZ
@@ -961,15 +1392,10 @@ namespace RunningLate
                 relativeZ <= end;
         }
 
-        // ==================================================
-        // FIND TRAIN
-        // ==================================================
-
-        public static TrainVehicle
-            FindTrainAtWorldPosition(
-                float laneWorldX,
-                float worldZ
-            )
+        public static TrainVehicle FindTrainAtWorldPosition(
+            float laneWorldX,
+            float worldZ
+        )
         {
             for (int i = 0;
                  i < activeTrains.Count;

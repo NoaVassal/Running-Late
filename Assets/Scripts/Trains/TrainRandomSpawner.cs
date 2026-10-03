@@ -13,40 +13,20 @@ namespace RunningLate
 
         [Header("Spawn Settings")]
 
-        [Tooltip(
-            "Chance that a train will appear " +
-            "on each side of a track segment."
-        )]
         [SerializeField]
         [Range(0f, 1f)]
-        private float spawnChancePerSide =
-            0.72f;
+        private float spawnChancePerSide = 0.72f;
 
-        [Tooltip(
-            "Chance that a spawned train " +
-            "will be the blue ramp train."
-        )]
         [SerializeField]
         [Range(0f, 1f)]
-        private float rampTrainChance =
-            0.55f;
+        private float rampTrainChance = 0.55f;
 
-        [Tooltip(
-            "0 means a train may appear again " +
-            "on the very next track segment."
-        )]
         [SerializeField]
         [Min(0)]
-        private int emptySegmentsBetweenTrains =
-            0;
+        private int emptySegmentsBetweenTrains = 0;
 
-        [Tooltip(
-            "Keep the first track segment " +
-            "clear when the run begins."
-        )]
         [SerializeField]
-        private bool keepFirstSegmentClear =
-            true;
+        private bool keepFirstSegmentClear = true;
 
         // ==================================================
         // TRAIN POSITION
@@ -54,19 +34,11 @@ namespace RunningLate
 
         [Header("Train Position")]
 
-        [Tooltip(
-            "Minimum local Z position inside a segment."
-        )]
         [SerializeField]
-        private float minLocalZ =
-            0f;
+        private float minLocalZ = 0f;
 
-        [Tooltip(
-            "Maximum local Z position inside a segment."
-        )]
         [SerializeField]
-        private float maxLocalZ =
-            0f;
+        private float maxLocalZ = 0f;
 
         // ==================================================
         // TRAIN SIZE
@@ -75,79 +47,89 @@ namespace RunningLate
         [Header("Train Size")]
 
         [SerializeField]
-        private float trainWidth =
-            2.1f;
+        private float trainWidth = 2.1f;
 
-        [Tooltip(
-            "All trains use exactly the same height."
-        )]
         [SerializeField]
-        private float trainHeight =
-            2.6f;
+        private float trainHeight = 2.25f;
 
-        [Tooltip(
-            "Track segments are 30 units long. " +
-            "A train length of 21 leaves a 9-unit gap " +
-            "between trains on consecutive segments."
-        )]
         [SerializeField]
-        private float trainLength =
-            21f;
+        private float trainLength = 21f;
 
-        [Tooltip(
-            "Length of the blue train ramp."
-        )]
         [SerializeField]
-        private float rampLength =
-            8f;
+        private float rampLength = 8f;
 
-        [Tooltip(
-            "Front area of the blue train " +
-            "where entering from another lane is allowed."
-        )]
         [SerializeField]
-        private float boardingZoneLength =
-            8f;
+        private float boardingZoneLength = 8f;
 
         // ==================================================
-        // LANE POSITIONS
+        // TRAIN VISUALS
         // ==================================================
 
-        private const float LeftLaneX =
-            -2.5f;
+        [Header("Train Visuals")]
 
-        private const float RightLaneX =
-            2.5f;
+        [Tooltip("Normal train visual prefab.")]
+        [SerializeField]
+        private GameObject normalTrainVisualPrefab;
+
+        [Tooltip("Train-with-ramp visual prefab.")]
+        [SerializeField]
+        private GameObject rampTrainVisualPrefab;
+
+        [Tooltip("Use 0 first. If the train faces backward, use 180.")]
+        [SerializeField]
+        private float trainVisualYawOffset = 0f;
+
+        [Tooltip("Fine tuning after automatic fitting. Start with 1,1,1.")]
+        [SerializeField]
+        private Vector3 trainVisualScaleMultiplier =
+            Vector3.one;
+
+        [Tooltip("Fine tuning after automatic centering. Start with 0,0,0.")]
+        [SerializeField]
+        private Vector3 trainVisualPositionOffset =
+            Vector3.zero;
+
+        // ==================================================
+        // TRAIN MOVEMENT
+        // ==================================================
+
+        [Header("Train Movement")]
+
+        [SerializeField]
+        [Min(0f)]
+        private float approachWorldSpeed = 38f;
+
+        [SerializeField]
+        [Min(0f)]
+        private float boardableWorldSpeed = 17.5f;
+
+        [SerializeField]
+        [Min(0f)]
+        private float slowdownStartFrontDistance = 18f;
+
+        [SerializeField]
+        [Min(0f)]
+        private float boardableFrontDistance = 2.5f;
+
+        // ==================================================
+        // LANES
+        // ==================================================
+
+        private const float LeftLaneX = -2.5f;
+        private const float RightLaneX = 2.5f;
 
         // ==================================================
         // RUNTIME
         // ==================================================
 
-        private TrackSegment[]
-            trackSegments;
+        private TrackSegment[] trackSegments;
+        private float[] lastSegmentZ;
 
-        private float[]
-            lastSegmentZ;
+        private int leftCooldown = 0;
+        private int rightCooldown = 0;
 
-        private int leftCooldown =
-            0;
-
-        private int rightCooldown =
-            0;
-
-        // ==================================================
-        // MATERIALS
-        // ==================================================
-
-        private Material
-            rampTrainMaterial;
-
-        private Material
-            blockingTrainMaterial;
-
-        // ==================================================
-        // SEGMENT TRAIN PAIRS
-        // ==================================================
+        private Material rampTrainMaterial;
+        private Material blockingTrainMaterial;
 
         private class SegmentTrainPair
         {
@@ -155,14 +137,9 @@ namespace RunningLate
             public TrainVehicle right;
         }
 
-        private readonly Dictionary<
-            TrackSegment,
-            SegmentTrainPair
-        > trainPairs =
-            new Dictionary<
-                TrackSegment,
-                SegmentTrainPair
-            >();
+        private readonly Dictionary<TrackSegment, SegmentTrainPair>
+            trainPairs =
+                new Dictionary<TrackSegment, SegmentTrainPair>();
 
         // ==================================================
         // AWAKE
@@ -176,19 +153,14 @@ namespace RunningLate
                 trackSegments.Length == 0)
             {
                 Debug.LogError(
-                    "TrainRandomSpawner: " +
-                    "No TrackSegments were found.",
+                    "TrainRandomSpawner: No TrackSegments were found.",
                     this
                 );
 
-                enabled =
-                    false;
-
+                enabled = false;
                 return;
             }
 
-            // The old LeftTrain / RightTrain cubes
-            // now become normal ground lanes.
             PrepareThreeGroundLanes();
 
             CreateMaterials();
@@ -244,13 +216,8 @@ namespace RunningLate
                 }
 
                 float currentZ =
-                    segment
-                        .transform
-                        .position
-                        .z;
+                    segment.transform.position.z;
 
-                // When TrackManager recycles a segment,
-                // it suddenly jumps forward in Z.
                 bool wasRecycled =
                     currentZ >
                     lastSegmentZ[i] +
@@ -269,15 +236,13 @@ namespace RunningLate
         }
 
         // ==================================================
-        // FIND TRACK SEGMENTS
+        // SEGMENTS
         // ==================================================
 
         private void FindAndSortSegments()
         {
             trackSegments =
-                Object.FindObjectsByType<
-                    TrackSegment
-                >(
+                Object.FindObjectsByType<TrackSegment>(
                     FindObjectsSortMode.None
                 );
 
@@ -287,16 +252,9 @@ namespace RunningLate
                     first,
                     second
                 ) =>
-                    first
-                        .transform
-                        .position
-                        .z
-                        .CompareTo(
-                            second
-                                .transform
-                                .position
-                                .z
-                        )
+                    first.transform.position.z.CompareTo(
+                        second.transform.position.z
+                    )
             );
 
             lastSegmentZ =
@@ -304,10 +262,6 @@ namespace RunningLate
                     trackSegments.Length
                 ];
         }
-
-        // ==================================================
-        // SAVE SEGMENT POSITIONS
-        // ==================================================
 
         private void SaveSegmentPositions()
         {
@@ -344,7 +298,7 @@ namespace RunningLate
         }
 
         // ==================================================
-        // PREPARE THREE GROUND LANES
+        // GROUND LANES
         // ==================================================
 
         private void PrepareThreeGroundLanes()
@@ -382,10 +336,6 @@ namespace RunningLate
             }
         }
 
-        // ==================================================
-        // PREPARE SIDE GROUND
-        // ==================================================
-
         private void PrepareSideGround(
             TrackSegment segment,
             string objectName,
@@ -400,20 +350,9 @@ namespace RunningLate
 
             if (lane == null)
             {
-                Debug.LogWarning(
-                    "TrainRandomSpawner: " +
-                    objectName +
-                    " was not found under " +
-                    segment.name +
-                    ".",
-                    segment
-                );
-
                 return;
             }
 
-            // Turn the old train platform
-            // into normal ground.
             lane.localPosition =
                 new Vector3(
                     laneX,
@@ -442,17 +381,12 @@ namespace RunningLate
             );
 
             BoxCollider collider =
-                lane.GetComponent<
-                    BoxCollider
-                >();
+                lane.GetComponent<BoxCollider>();
 
             if (collider == null)
             {
                 collider =
-                    lane.gameObject
-                        .AddComponent<
-                            BoxCollider
-                        >();
+                    lane.gameObject.AddComponent<BoxCollider>();
             }
 
             collider.enabled =
@@ -463,7 +397,7 @@ namespace RunningLate
         }
 
         // ==================================================
-        // CREATE MATERIALS
+        // MATERIALS
         // ==================================================
 
         private void CreateMaterials()
@@ -491,17 +425,8 @@ namespace RunningLate
 
             if (shader == null)
             {
-                Debug.LogWarning(
-                    "TrainRandomSpawner: " +
-                    "Could not find a suitable shader."
-                );
-
                 return;
             }
-
-            // ----------------------------------------------
-            // BLUE RAMP TRAIN
-            // ----------------------------------------------
 
             rampTrainMaterial =
                 new Material(
@@ -518,10 +443,6 @@ namespace RunningLate
                     0.95f,
                     1f
                 );
-
-            // ----------------------------------------------
-            // RED BLOCKING TRAIN
-            // ----------------------------------------------
 
             blockingTrainMaterial =
                 new Material(
@@ -541,7 +462,7 @@ namespace RunningLate
         }
 
         // ==================================================
-        // CREATE TRAIN SLOTS
+        // TRAIN SLOTS
         // ==================================================
 
         private void CreateTrainSlots()
@@ -589,10 +510,6 @@ namespace RunningLate
             }
         }
 
-        // ==================================================
-        // CREATE ONE TRAIN SLOT
-        // ==================================================
-
         private TrainVehicle CreateTrainSlot(
             TrackSegment segment,
             string objectName,
@@ -639,16 +556,12 @@ namespace RunningLate
                 Vector3.one;
 
             TrainVehicle vehicle =
-                root.GetComponent<
-                    TrainVehicle
-                >();
+                root.GetComponent<TrainVehicle>();
 
             if (vehicle == null)
             {
                 vehicle =
-                    root.AddComponent<
-                        TrainVehicle
-                    >();
+                    root.AddComponent<TrainVehicle>();
             }
 
             vehicle.Build(
@@ -659,7 +572,16 @@ namespace RunningLate
                 boardingZoneLength,
                 groundLayer,
                 rampTrainMaterial,
-                blockingTrainMaterial
+                blockingTrainMaterial,
+                normalTrainVisualPrefab,
+                rampTrainVisualPrefab,
+                trainVisualYawOffset,
+                trainVisualScaleMultiplier,
+                trainVisualPositionOffset,
+                approachWorldSpeed,
+                boardableWorldSpeed,
+                slowdownStartFrontDistance,
+                boardableFrontDistance
             );
 
             root.SetActive(
@@ -670,16 +592,13 @@ namespace RunningLate
         }
 
         // ==================================================
-        // INITIAL TRAINS
+        // CONFIGURE
         // ==================================================
 
         private void ConfigureInitialTrains()
         {
-            leftCooldown =
-                0;
-
-            rightCooldown =
-                0;
+            leftCooldown = 0;
+            rightCooldown = 0;
 
             for (int i = 0;
                  i < trackSegments.Length;
@@ -693,8 +612,6 @@ namespace RunningLate
                     continue;
                 }
 
-                // First segment should be safe
-                // when the player starts.
                 if (i == 0 &&
                     keepFirstSegmentClear)
                 {
@@ -710,10 +627,6 @@ namespace RunningLate
                 );
             }
         }
-
-        // ==================================================
-        // CONFIGURE SEGMENT
-        // ==================================================
 
         private void ConfigureSegment(
             TrackSegment segment
@@ -740,10 +653,6 @@ namespace RunningLate
             );
         }
 
-        // ==================================================
-        // CONFIGURE TRAIN
-        // ==================================================
-
         private void ConfigureTrain(
             TrainVehicle vehicle,
             float laneX,
@@ -755,32 +664,17 @@ namespace RunningLate
                 return;
             }
 
-            bool shouldSpawn =
-                ShouldSpawnTrain(
+            if (!ShouldSpawnTrain(
                     ref cooldown
-                );
-
-            if (!shouldSpawn)
+                ))
             {
-                vehicle
-                    .gameObject
-                    .SetActive(
-                        false
-                    );
+                vehicle.gameObject.SetActive(
+                    false
+                );
 
                 return;
             }
 
-            // With Min = 0 and Max = 0,
-            // every train is centered in its segment.
-            //
-            // Track segment = 30
-            // Train = 21
-            //
-            // Therefore:
-            //
-            // 30 - 21 = 9 units of jump gap
-            // between consecutive trains.
             float localZ =
                 Random.Range(
                     minLocalZ,
@@ -790,30 +684,20 @@ namespace RunningLate
             TrainVehicle.TrainType type =
                 Random.value <
                 rampTrainChance
-                    ? TrainVehicle
-                        .TrainType
-                        .Ramp
-                    : TrainVehicle
-                        .TrainType
-                        .Blocking;
+                    ? TrainVehicle.TrainType.Ramp
+                    : TrainVehicle.TrainType.Blocking;
 
-            vehicle
-                .transform
-                .localPosition =
+            vehicle.transform.localPosition =
                 new Vector3(
                     laneX,
                     0f,
                     localZ
                 );
 
-            vehicle
-                .transform
-                .localRotation =
+            vehicle.transform.localRotation =
                 Quaternion.identity;
 
-            vehicle
-                .transform
-                .localScale =
+            vehicle.transform.localScale =
                 Vector3.one;
 
             vehicle.Configure(
@@ -821,16 +705,10 @@ namespace RunningLate
                 laneX
             );
 
-            vehicle
-                .gameObject
-                .SetActive(
-                    true
-                );
+            vehicle.gameObject.SetActive(
+                true
+            );
         }
-
-        // ==================================================
-        // SPAWN RULE
-        // ==================================================
 
         private bool ShouldSpawnTrain(
             ref int cooldown
@@ -856,10 +734,6 @@ namespace RunningLate
             return spawn;
         }
 
-        // ==================================================
-        // EMPTY SEGMENT
-        // ==================================================
-
         private void SetSegmentEmpty(
             TrackSegment segment
         )
@@ -874,20 +748,16 @@ namespace RunningLate
 
             if (pair.left != null)
             {
-                pair.left
-                    .gameObject
-                    .SetActive(
-                        false
-                    );
+                pair.left.gameObject.SetActive(
+                    false
+                );
             }
 
             if (pair.right != null)
             {
-                pair.right
-                    .gameObject
-                    .SetActive(
-                        false
-                    );
+                pair.right.gameObject.SetActive(
+                    false
+                );
             }
         }
 
@@ -904,8 +774,6 @@ namespace RunningLate
 
         private IEnumerator ResetAfterTrackReset()
         {
-            // Wait one frame so TrackManager
-            // can restore segment positions first.
             yield return null;
 
             FindAndSortSegments();
