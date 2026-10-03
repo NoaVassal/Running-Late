@@ -1,24 +1,42 @@
+using TMPro;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace RunningLate
 {
     public class GameFlowHUD : MonoBehaviour
     {
+        [Header("Screen Roots")]
+        [SerializeField] private GameObject startScreen;
+        [SerializeField] private GameObject resultsScreen;
+        [SerializeField] private GameObject gameOverScreen;
+
+        [Header("Start Screen")]
+        [SerializeField] private TMP_Text titleText;
+        [SerializeField] private TMP_Text subtitleText;
+        [SerializeField] private TMP_Text controlsText;
+        [SerializeField] private Button playButton;
+
+        [Header("Results Screen")]
+        [SerializeField] private TMP_Text resultsHeadingText;
+        [SerializeField] private TMP_Text gradeText;
+        [SerializeField] private TMP_Text resultsPointsText;
+        [SerializeField] private TMP_Text resultsBatteryText;
+        [SerializeField] private Button resultsRetryButton;
+
+        [Header("Game Over Screen")]
+        [SerializeField] private TMP_Text gameOverHeadingText;
+        [SerializeField] private TMP_Text reasonText;
+        [SerializeField] private TMP_Text gameOverPointsText;
+        [SerializeField] private TMP_Text gameOverBatteryText;
+        [SerializeField] private Button gameOverRetryButton;
+
         private ScoreSystem scoreSystem;
         private BatterySystem batterySystem;
 
         private string gameOverReason = "";
-
-        private bool passed = false;
-        private int finalGrade = 0;
-
-        private GUIStyle titleStyle;
-        private GUIStyle subtitleStyle;
-        private GUIStyle bodyStyle;
-        private GUIStyle resultStyle;
-
-        private Texture2D overlayTexture;
-        private Texture2D panelTexture;
+        private bool passed;
+        private int finalGrade;
 
         private void Start()
         {
@@ -31,12 +49,16 @@ namespace RunningLate
             if (GameManager.Instance == null)
             {
                 Debug.LogError(
-                    "GameFlowHUD: GameManager was not found."
+                    "GameFlowHUD: GameManager was not found.",
+                    this
                 );
 
                 enabled = false;
                 return;
             }
+
+            GameManager.Instance.OnGameStateChanged +=
+                HandleGameStateChanged;
 
             GameManager.Instance.OnGameOver +=
                 HandleGameOver;
@@ -46,17 +68,46 @@ namespace RunningLate
 
             GameManager.Instance.OnRunReset +=
                 HandleRunReset;
+
+            if (playButton != null)
+            {
+                playButton.onClick.AddListener(
+                    HandlePlayClicked
+                );
+            }
+
+            if (resultsRetryButton != null)
+            {
+                resultsRetryButton.onClick.AddListener(
+                    HandleRetryClicked
+                );
+            }
+
+            if (gameOverRetryButton != null)
+            {
+                gameOverRetryButton.onClick.AddListener(
+                    HandleRetryClicked
+                );
+            }
+
+            RefreshForState(
+                GameManager.Instance.State
+            );
         }
 
-        // ==================================================
-        // EVENTS
-        // ==================================================
+        private void HandleGameStateChanged(
+            GameManager.GameState newState
+        )
+        {
+            RefreshForState(newState);
+        }
 
         private void HandleGameOver(
             string reason
         )
         {
             gameOverReason = reason;
+            RefreshGameOverScreen();
         }
 
         private void HandleRunFinished(
@@ -66,6 +117,7 @@ namespace RunningLate
         {
             passed = didPass;
             finalGrade = grade;
+            RefreshResultsScreen();
         }
 
         private void HandleRunReset()
@@ -75,124 +127,64 @@ namespace RunningLate
             finalGrade = 0;
         }
 
-        // ==================================================
-        // GUI
-        // ==================================================
+        private void HandlePlayClicked()
+        {
+            if (GameManager.Instance != null &&
+                GameManager.Instance.State ==
+                GameManager.GameState.GetReady)
+            {
+                GameManager.Instance.StartRun();
+            }
+        }
 
-        private void OnGUI()
+        private void HandleRetryClicked()
         {
             if (GameManager.Instance == null)
             {
                 return;
             }
 
-            CreateStylesIfNeeded();
+            GameManager.GameState state =
+                GameManager.Instance.State;
 
-            switch (GameManager.Instance.State)
+            if (state == GameManager.GameState.Results ||
+                state == GameManager.GameState.GameOver)
             {
-                case GameManager.GameState.GetReady:
-                    DrawStartScreen();
-                    break;
-
-                case GameManager.GameState.Results:
-                    DrawResultsScreen();
-                    break;
-
-                case GameManager.GameState.GameOver:
-                    DrawGameOverScreen();
-                    break;
+                GameManager.Instance.RestartRun();
             }
         }
 
-        // ==================================================
-        // START SCREEN
-        // ==================================================
-
-        private void DrawStartScreen()
+        private void RefreshForState(
+            GameManager.GameState state
+        )
         {
-            DrawFullScreenOverlay();
-
-            float panelWidth = 620f;
-            float panelHeight = 360f;
-
-            Rect panel =
-                CenterRect(
-                    panelWidth,
-                    panelHeight
-                );
-
-            GUI.DrawTexture(
-                panel,
-                panelTexture
+            SetActive(
+                startScreen,
+                state == GameManager.GameState.GetReady
             );
 
-            Rect titleRect =
-                new Rect(
-                    panel.x,
-                    panel.y + 35f,
-                    panel.width,
-                    70f
-                );
-
-            GUI.Label(
-                titleRect,
-                "RUNNING LATE",
-                titleStyle
+            SetActive(
+                resultsScreen,
+                state == GameManager.GameState.Results
             );
 
-            Rect subtitleRect =
-                new Rect(
-                    panel.x + 40f,
-                    panel.y + 115f,
-                    panel.width - 80f,
-                    55f
-                );
-
-            GUI.Label(
-                subtitleRect,
-                "Get to class before 5:30!",
-                subtitleStyle
+            SetActive(
+                gameOverScreen,
+                state == GameManager.GameState.GameOver
             );
 
-            Rect controlsRect =
-                new Rect(
-                    panel.x + 40f,
-                    panel.y + 175f,
-                    panel.width - 80f,
-                    90f
-                );
-
-            GUI.Label(
-                controlsRect,
-                "A / D or Arrows  -  Move\n" +
-                "SPACE / W / Up  -  Jump\n" +
-                "S / Down  -  Slide",
-                bodyStyle
-            );
-
-            Rect startRect =
-                new Rect(
-                    panel.x,
-                    panel.y + 290f,
-                    panel.width,
-                    45f
-                );
-
-            GUI.Label(
-                startRect,
-                "PRESS SPACE OR ENTER TO START",
-                resultStyle
-            );
+            if (state == GameManager.GameState.Results)
+            {
+                RefreshResultsScreen();
+            }
+            else if (state == GameManager.GameState.GameOver)
+            {
+                RefreshGameOverScreen();
+            }
         }
 
-        // ==================================================
-        // RESULTS SCREEN
-        // ==================================================
-
-        private void DrawResultsScreen()
+        private void RefreshResultsScreen()
         {
-            DrawFullScreenOverlay();
-
             int points =
                 scoreSystem != null
                     ? scoreSystem.ProjectPoints
@@ -203,29 +195,31 @@ namespace RunningLate
                     ? batterySystem.CurrentBattery
                     : 0f;
 
-            string resultText =
-                passed
-                    ? "PASSED!"
-                    : "FAILED";
+            SetText(
+                resultsHeadingText,
+                passed ? "PASSED!" : "FAILED"
+            );
 
-            DrawEndPanel(
-                resultText,
-                "FINAL GRADE: " + finalGrade,
-                "PROJECT POINTS: " + points,
+            SetText(
+                gradeText,
+                "FINAL GRADE: " + finalGrade
+            );
+
+            SetText(
+                resultsPointsText,
+                "PROJECT POINTS: " + points
+            );
+
+            SetText(
+                resultsBatteryText,
                 "BATTERY: " +
                 Mathf.RoundToInt(battery) +
                 "%"
             );
         }
 
-        // ==================================================
-        // GAME OVER SCREEN
-        // ==================================================
-
-        private void DrawGameOverScreen()
+        private void RefreshGameOverScreen()
         {
-            DrawFullScreenOverlay();
-
             int points =
                 scoreSystem != null
                     ? scoreSystem.ProjectPoints
@@ -236,105 +230,28 @@ namespace RunningLate
                     ? batterySystem.CurrentBattery
                     : 0f;
 
-            string reason =
-                ConvertReasonToText(
-                    gameOverReason
-                );
+            SetText(
+                gameOverHeadingText,
+                "GAME OVER"
+            );
 
-            DrawEndPanel(
-                "GAME OVER",
-                reason,
-                "PROJECT POINTS: " + points,
+            SetText(
+                reasonText,
+                ConvertReasonToText(gameOverReason)
+            );
+
+            SetText(
+                gameOverPointsText,
+                "PROJECT POINTS: " + points
+            );
+
+            SetText(
+                gameOverBatteryText,
                 "BATTERY: " +
                 Mathf.RoundToInt(battery) +
                 "%"
             );
         }
-
-        // ==================================================
-        // END PANEL
-        // ==================================================
-
-        private void DrawEndPanel(
-            string heading,
-            string line1,
-            string line2,
-            string line3
-        )
-        {
-            float panelWidth = 600f;
-            float panelHeight = 340f;
-
-            Rect panel =
-                CenterRect(
-                    panelWidth,
-                    panelHeight
-                );
-
-            GUI.DrawTexture(
-                panel,
-                panelTexture
-            );
-
-            GUI.Label(
-                new Rect(
-                    panel.x,
-                    panel.y + 30f,
-                    panel.width,
-                    65f
-                ),
-                heading,
-                titleStyle
-            );
-
-            GUI.Label(
-                new Rect(
-                    panel.x + 30f,
-                    panel.y + 115f,
-                    panel.width - 60f,
-                    45f
-                ),
-                line1,
-                subtitleStyle
-            );
-
-            GUI.Label(
-                new Rect(
-                    panel.x + 30f,
-                    panel.y + 165f,
-                    panel.width - 60f,
-                    40f
-                ),
-                line2,
-                bodyStyle
-            );
-
-            GUI.Label(
-                new Rect(
-                    panel.x + 30f,
-                    panel.y + 205f,
-                    panel.width - 60f,
-                    40f
-                ),
-                line3,
-                bodyStyle
-            );
-
-            GUI.Label(
-                new Rect(
-                    panel.x,
-                    panel.y + 280f,
-                    panel.width,
-                    40f
-                ),
-                "PRESS SPACE OR ENTER TO RETRY",
-                resultStyle
-            );
-        }
-
-        // ==================================================
-        // GAME OVER REASONS
-        // ==================================================
 
         private string ConvertReasonToText(
             string reason
@@ -370,173 +287,57 @@ namespace RunningLate
             return reason.ToUpper();
         }
 
-        // ==================================================
-        // LAYOUT HELPERS
-        // ==================================================
-
-        private Rect CenterRect(
-            float width,
-            float height
+        private static void SetActive(
+            GameObject screen,
+            bool isActive
         )
         {
-            return new Rect(
-                (Screen.width - width) / 2f,
-                (Screen.height - height) / 2f,
-                width,
-                height
-            );
-        }
-
-        private void DrawFullScreenOverlay()
-        {
-            GUI.DrawTexture(
-                new Rect(
-                    0f,
-                    0f,
-                    Screen.width,
-                    Screen.height
-                ),
-                overlayTexture
-            );
-        }
-
-        // ==================================================
-        // STYLE SETUP
-        // ==================================================
-
-        private void CreateStylesIfNeeded()
-        {
-            if (overlayTexture == null)
+            if (screen != null &&
+                screen.activeSelf != isActive)
             {
-                overlayTexture =
-                    CreateColorTexture(
-                        new Color(
-                            0f,
-                            0f,
-                            0f,
-                            0.65f
-                        )
-                    );
-            }
-
-            if (panelTexture == null)
-            {
-                panelTexture =
-                    CreateColorTexture(
-                        new Color(
-                            0.04f,
-                            0.06f,
-                            0.09f,
-                            0.95f
-                        )
-                    );
-            }
-
-            if (titleStyle == null)
-            {
-                titleStyle =
-                    new GUIStyle(
-                        GUI.skin.label
-                    );
-
-                titleStyle.alignment =
-                    TextAnchor.MiddleCenter;
-
-                titleStyle.fontSize = 42;
-
-                titleStyle.fontStyle =
-                    FontStyle.Bold;
-
-                titleStyle.normal.textColor =
-                    Color.white;
-            }
-
-            if (subtitleStyle == null)
-            {
-                subtitleStyle =
-                    new GUIStyle(
-                        GUI.skin.label
-                    );
-
-                subtitleStyle.alignment =
-                    TextAnchor.MiddleCenter;
-
-                subtitleStyle.fontSize = 24;
-
-                subtitleStyle.fontStyle =
-                    FontStyle.Bold;
-
-                subtitleStyle.normal.textColor =
-                    Color.white;
-            }
-
-            if (bodyStyle == null)
-            {
-                bodyStyle =
-                    new GUIStyle(
-                        GUI.skin.label
-                    );
-
-                bodyStyle.alignment =
-                    TextAnchor.MiddleCenter;
-
-                bodyStyle.fontSize = 19;
-
-                bodyStyle.normal.textColor =
-                    Color.white;
-            }
-
-            if (resultStyle == null)
-            {
-                resultStyle =
-                    new GUIStyle(
-                        GUI.skin.label
-                    );
-
-                resultStyle.alignment =
-                    TextAnchor.MiddleCenter;
-
-                resultStyle.fontSize = 20;
-
-                resultStyle.fontStyle =
-                    FontStyle.Bold;
-
-                resultStyle.normal.textColor =
-                    Color.yellow;
+                screen.SetActive(isActive);
             }
         }
 
-        private Texture2D CreateColorTexture(
-            Color color
+        private static void SetText(
+            TMP_Text textComponent,
+            string value
         )
         {
-            Texture2D texture =
-                new Texture2D(
-                    1,
-                    1,
-                    TextureFormat.RGBA32,
-                    false
-                );
-
-            texture.SetPixel(
-                0,
-                0,
-                color
-            );
-
-            texture.Apply();
-
-            return texture;
+            if (textComponent != null)
+            {
+                textComponent.text = value;
+            }
         }
-
-        // ==================================================
-        // CLEANUP
-        // ==================================================
 
         private void OnDestroy()
         {
+            if (playButton != null)
+            {
+                playButton.onClick.RemoveListener(
+                    HandlePlayClicked
+                );
+            }
+
+            if (resultsRetryButton != null)
+            {
+                resultsRetryButton.onClick.RemoveListener(
+                    HandleRetryClicked
+                );
+            }
+
+            if (gameOverRetryButton != null)
+            {
+                gameOverRetryButton.onClick.RemoveListener(
+                    HandleRetryClicked
+                );
+            }
+
             if (GameManager.Instance != null)
             {
+                GameManager.Instance.OnGameStateChanged -=
+                    HandleGameStateChanged;
+
                 GameManager.Instance.OnGameOver -=
                     HandleGameOver;
 
@@ -545,20 +346,6 @@ namespace RunningLate
 
                 GameManager.Instance.OnRunReset -=
                     HandleRunReset;
-            }
-
-            if (overlayTexture != null)
-            {
-                Destroy(
-                    overlayTexture
-                );
-            }
-
-            if (panelTexture != null)
-            {
-                Destroy(
-                    panelTexture
-                );
             }
         }
     }
