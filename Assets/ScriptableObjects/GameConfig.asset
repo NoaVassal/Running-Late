@@ -19,9 +19,12 @@ MonoBehaviour:
   jumpForce: 7
   slideDuration: 0.8
   classTimer: 180
+  reachClassAfterSeconds: 180
   maxBattery: 100
   batteryDrainInterval: 1
   batteryDrainAmount: 1
   batteryPickupValue: 5
+  minimumBatteryToPass: 40
   projectPointValue: 5
+  maxProjectPoints: 100
   passingGrade: 60

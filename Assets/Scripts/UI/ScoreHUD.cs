@@ -13,7 +13,7 @@ namespace RunningLate
         private void Start()
         {
             scoreSystem =
-                Object.FindFirstObjectByType<ScoreSystem>();
+                UnityEngine.Object.FindFirstObjectByType<ScoreSystem>();
 
             if (scoreSystem == null)
             {
@@ -32,13 +32,24 @@ namespace RunningLate
                 HandleScoreChanged;
         }
 
-        private void HandleScoreChanged(int value)
+        private void HandleScoreChanged(
+            int value
+        )
         {
-            displayedScore = value;
+            displayedScore =
+                value;
         }
 
         private void OnGUI()
         {
+            // Hide gameplay HUD immediately during the ending movie.
+            if (GameManager.Instance != null &&
+                GameManager.Instance.State ==
+                    GameManager.GameState.EndingVideo)
+            {
+                return;
+            }
+
             CreateStylesIfNeeded();
 
             float width = 145f;
@@ -47,12 +58,13 @@ namespace RunningLate
             float x = 8f;
             float y = 5f;
 
-            Rect panelRect = new Rect(
-                x,
-                y,
-                width,
-                height
-            );
+            Rect panelRect =
+                new Rect(
+                    x,
+                    y,
+                    width,
+                    height
+                );
 
             GUI.DrawTexture(
                 panelRect,
@@ -103,7 +115,8 @@ namespace RunningLate
                 textStyle.alignment =
                     TextAnchor.MiddleCenter;
 
-                textStyle.fontSize = 16;
+                textStyle.fontSize =
+                    16;
 
                 textStyle.fontStyle =
                     FontStyle.Bold;

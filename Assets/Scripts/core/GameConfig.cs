@@ -31,6 +31,10 @@ namespace RunningLate
         [Min(1f)]
         public float classTimer = 180f;
 
+        [Tooltip("How many real seconds into the run the player reaches class.")]
+        [Min(1f)]
+        public float reachClassAfterSeconds = 165f;
+
         [Header("Battery")]
         [Range(1f, 100f)]
         public float maxBattery = 100f;
@@ -44,11 +48,17 @@ namespace RunningLate
         [Min(0f)]
         public float batteryPickupValue = 5f;
 
+        [Range(0f, 100f)]
+        public float minimumBatteryToPass = 20f;
+
         [Header("Project Points")]
         [Min(1)]
         public int projectPointValue = 5;
 
-        [Min(0)]
+        [Range(1, 100)]
+        public int maxProjectPoints = 100;
+
+        [Range(0, 100)]
         public int passingGrade = 60;
     }
 }

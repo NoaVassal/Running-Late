@@ -13,8 +13,22 @@ namespace RunningLate
 
         public int ProjectPoints => projectPoints;
 
-        // Final Grade is exactly equal to Project Points.
-        public int FinalGrade => projectPoints;
+        public int FinalGrade
+        {
+            get
+            {
+                int maximum =
+                    config != null
+                        ? config.maxProjectPoints
+                        : 100;
+
+                return Mathf.Clamp(
+                    projectPoints,
+                    0,
+                    maximum
+                );
+            }
+        }
 
         public event Action<int> OnProjectPointsChanged;
 
@@ -24,13 +38,15 @@ namespace RunningLate
 
             if (GameManager.Instance != null)
             {
-                GameManager.Instance.OnRunReset += ResetScore;
+                GameManager.Instance.OnRunReset +=
+                    ResetScore;
             }
 
             if (config == null)
             {
                 Debug.LogError(
-                    "ScoreSystem: GameConfig is not assigned."
+                    "ScoreSystem: GameConfig is not assigned.",
+                    this
                 );
             }
         }
@@ -38,17 +54,43 @@ namespace RunningLate
         public void AddProjectPoints()
         {
             if (config == null)
+            {
                 return;
+            }
 
-            AddProjectPoints(config.projectPointValue);
+            AddProjectPoints(
+                config.projectPointValue
+            );
         }
 
-        public void AddProjectPoints(int amount)
+        public void AddProjectPoints(
+            int amount
+        )
         {
             if (amount <= 0)
+            {
                 return;
+            }
 
-            projectPoints += amount;
+            int maximum =
+                config != null
+                    ? config.maxProjectPoints
+                    : 100;
+
+            int previousPoints =
+                projectPoints;
+
+            projectPoints =
+                Mathf.Clamp(
+                    projectPoints + amount,
+                    0,
+                    maximum
+                );
+
+            if (projectPoints == previousPoints)
+            {
+                return;
+            }
 
             Debug.Log(
                 "Project Points: " +
@@ -57,21 +99,30 @@ namespace RunningLate
                 FinalGrade
             );
 
-            OnProjectPointsChanged?.Invoke(projectPoints);
+            OnProjectPointsChanged?.Invoke(
+                projectPoints
+            );
         }
 
         public void ResetScore()
         {
             projectPoints = 0;
-            OnProjectPointsChanged?.Invoke(projectPoints);
-            Debug.Log("Project Points reset to 0.");
+
+            OnProjectPointsChanged?.Invoke(
+                projectPoints
+            );
+
+            Debug.Log(
+                "Project Points reset to 0."
+            );
         }
 
         private void OnDestroy()
         {
             if (GameManager.Instance != null)
             {
-                GameManager.Instance.OnRunReset -= ResetScore;
+                GameManager.Instance.OnRunReset -=
+                    ResetScore;
             }
         }
     }

@@ -13,7 +13,7 @@ namespace RunningLate
         private void Start()
         {
             batterySystem =
-                Object.FindFirstObjectByType<BatterySystem>();
+                UnityEngine.Object.FindFirstObjectByType<BatterySystem>();
 
             if (batterySystem == null)
             {
@@ -32,29 +32,43 @@ namespace RunningLate
                 HandleBatteryChanged;
         }
 
-        private void HandleBatteryChanged(float value)
+        private void HandleBatteryChanged(
+            float value
+        )
         {
-            displayedBattery = value;
+            displayedBattery =
+                value;
         }
 
         private void OnGUI()
         {
+            // Hide gameplay HUD immediately during the ending movie.
+            if (GameManager.Instance != null &&
+                GameManager.Instance.State ==
+                    GameManager.GameState.EndingVideo)
+            {
+                return;
+            }
+
             CreateStylesIfNeeded();
 
             float width = 165f;
             float height = 36f;
 
             float x =
-                Screen.width - width - 8f;
+                Screen.width -
+                width -
+                8f;
 
             float y = 5f;
 
-            Rect panelRect = new Rect(
-                x,
-                y,
-                width,
-                height
-            );
+            Rect panelRect =
+                new Rect(
+                    x,
+                    y,
+                    width,
+                    height
+                );
 
             GUI.DrawTexture(
                 panelRect,
@@ -64,7 +78,9 @@ namespace RunningLate
 
             string batteryText =
                 "BATTERY: " +
-                Mathf.RoundToInt(displayedBattery) +
+                Mathf.RoundToInt(
+                    displayedBattery
+                ) +
                 "%";
 
             GUI.Label(
@@ -110,7 +126,8 @@ namespace RunningLate
                 textStyle.alignment =
                     TextAnchor.MiddleCenter;
 
-                textStyle.fontSize = 16;
+                textStyle.fontSize =
+                    16;
 
                 textStyle.fontStyle =
                     FontStyle.Bold;

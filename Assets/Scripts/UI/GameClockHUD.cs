@@ -4,10 +4,10 @@ namespace RunningLate
 {
     public class GameClockHUD : MonoBehaviour
     {
-        private const int StartHour = 5;
+        private const int StartHour = 17;
         private const int StartMinute = 0;
 
-        private const int EndHour = 5;
+        private const int EndHour = 17;
         private const int EndMinute = 30;
 
         private float runDuration = 180f;
@@ -53,6 +53,14 @@ namespace RunningLate
 
         private void OnGUI()
         {
+            // Hide clock and top progress bar during the ending movie.
+            if (GameManager.Instance != null &&
+                GameManager.Instance.State ==
+                    GameManager.GameState.EndingVideo)
+            {
+                return;
+            }
+
             CreateStylesIfNeeded();
 
             DrawTopTimeBar();
@@ -107,7 +115,8 @@ namespace RunningLate
             float height = 34f;
 
             float x =
-                (Screen.width - width) / 2f;
+                (Screen.width - width) /
+                2f;
 
             float y = 14f;
 
@@ -140,7 +149,8 @@ namespace RunningLate
 
             float progress =
                 Mathf.Clamp01(
-                    elapsed / runDuration
+                    elapsed /
+                    runDuration
                 );
 
             int startTotalMinutes =
@@ -161,10 +171,12 @@ namespace RunningLate
                 );
 
             int hour =
-                gameMinutes / 60;
+                gameMinutes /
+                60;
 
             int minute =
-                gameMinutes % 60;
+                gameMinutes %
+                60;
 
             return string.Format(
                 "{0}:{1:00}",
@@ -224,7 +236,9 @@ namespace RunningLate
                 textStyle.alignment =
                     TextAnchor.MiddleCenter;
 
-                textStyle.fontSize = 18;
+                textStyle.fontSize =
+                    18;
+
                 textStyle.fontStyle =
                     FontStyle.Bold;
 

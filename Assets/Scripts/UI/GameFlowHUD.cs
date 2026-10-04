@@ -15,6 +15,7 @@ namespace RunningLate
 
         [Header("Ending Video")]
         [SerializeField] private VideoPlayer endingVideoPlayer;
+        [SerializeField] private RawImage endingVideoImage;
         [SerializeField] private VideoClip successVideoClip;
         [SerializeField] private VideoClip gameOverVideoClip;
 
@@ -45,13 +46,16 @@ namespace RunningLate
         private bool passed;
         private int finalGrade;
 
+        private AspectRatioFitter videoAspectFitter;
+        private bool waitingForFirstVideoFrame;
+
         private void Start()
         {
             scoreSystem =
-                Object.FindFirstObjectByType<ScoreSystem>();
+                UnityEngine.Object.FindFirstObjectByType<ScoreSystem>();
 
             batterySystem =
-                Object.FindFirstObjectByType<BatterySystem>();
+                UnityEngine.Object.FindFirstObjectByType<BatterySystem>();
 
             if (GameManager.Instance == null)
             {
@@ -64,6 +68,9 @@ namespace RunningLate
                 return;
             }
 
+            ResolveVideoImage();
+            ConfigureVideoPlayer();
+
             GameManager.Instance.OnGameStateChanged +=
                 HandleGameStateChanged;
 
@@ -75,15 +82,6 @@ namespace RunningLate
 
             GameManager.Instance.OnRunReset +=
                 HandleRunReset;
-
-            if (endingVideoPlayer != null)
-            {
-                endingVideoPlayer.loopPointReached -=
-                    HandleEndingVideoFinished;
-
-                endingVideoPlayer.loopPointReached +=
-                    HandleEndingVideoFinished;
-            }
 
             if (playButton != null)
             {
@@ -111,18 +109,155 @@ namespace RunningLate
             );
         }
 
+        private void ResolveVideoImage()
+        {
+            if (endingVideoImage == null &&
+                endingVideoScreen != null)
+            {
+                endingVideoImage =
+                    endingVideoScreen
+                        .GetComponentInChildren<RawImage>(true);
+            }
+
+            if (endingVideoImage == null)
+            {
+                Debug.LogWarning(
+                    "GameFlowHUD: No RawImage was found under EndingVideoScreen.",
+                    this
+                );
+
+                return;
+            }
+
+            RectTransform screenRect =
+                endingVideoScreen != null
+                    ? endingVideoScreen.GetComponent<RectTransform>()
+                    : null;
+
+            if (screenRect != null)
+            {
+                screenRect.anchorMin =
+                    Vector2.zero;
+
+                screenRect.anchorMax =
+                    Vector2.one;
+
+                screenRect.offsetMin =
+                    Vector2.zero;
+
+                screenRect.offsetMax =
+                    Vector2.zero;
+
+                screenRect.anchoredPosition =
+                    Vector2.zero;
+
+                screenRect.localScale =
+                    Vector3.one;
+            }
+
+            RectTransform videoRect =
+                endingVideoImage.rectTransform;
+
+            videoRect.anchorMin =
+                new Vector2(0.5f, 0.5f);
+
+            videoRect.anchorMax =
+                new Vector2(0.5f, 0.5f);
+
+            videoRect.pivot =
+                new Vector2(0.5f, 0.5f);
+
+            videoRect.anchoredPosition =
+                Vector2.zero;
+
+            videoRect.localScale =
+                Vector3.one;
+
+            videoAspectFitter =
+                endingVideoImage.GetComponent<AspectRatioFitter>();
+
+            if (videoAspectFitter == null)
+            {
+                videoAspectFitter =
+                    endingVideoImage.gameObject
+                        .AddComponent<AspectRatioFitter>();
+            }
+
+            // Fills the whole screen while preserving the video's aspect ratio.
+            // Some outer pixels can be cropped instead of leaving black bars.
+            videoAspectFitter.aspectMode =
+                AspectRatioFitter.AspectMode.EnvelopeParent;
+
+            endingVideoImage.enabled =
+                false;
+        }
+
+        private void ConfigureVideoPlayer()
+        {
+            if (endingVideoPlayer == null)
+            {
+                return;
+            }
+
+            endingVideoPlayer.playOnAwake =
+                false;
+
+            endingVideoPlayer.isLooping =
+                false;
+
+            endingVideoPlayer.waitForFirstFrame =
+                true;
+
+            endingVideoPlayer.skipOnDrop =
+                true;
+
+            endingVideoPlayer.audioOutputMode =
+                VideoAudioOutputMode.None;
+
+            endingVideoPlayer.sendFrameReadyEvents =
+                true;
+
+            endingVideoPlayer.prepareCompleted -=
+                HandleVideoPrepared;
+
+            endingVideoPlayer.prepareCompleted +=
+                HandleVideoPrepared;
+
+            endingVideoPlayer.frameReady -=
+                HandleVideoFrameReady;
+
+            endingVideoPlayer.frameReady +=
+                HandleVideoFrameReady;
+
+            endingVideoPlayer.loopPointReached -=
+                HandleEndingVideoFinished;
+
+            endingVideoPlayer.loopPointReached +=
+                HandleEndingVideoFinished;
+
+            endingVideoPlayer.errorReceived -=
+                HandleVideoError;
+
+            endingVideoPlayer.errorReceived +=
+                HandleVideoError;
+        }
+
         private void HandleGameStateChanged(
             GameManager.GameState newState
         )
         {
-            RefreshForState(newState);
+            RefreshForState(
+                newState
+            );
         }
 
         private void HandleGameOver(
             string reason
         )
         {
-            gameOverReason = reason;
+            gameOverReason =
+                reason;
+
             RefreshGameOverScreen();
         }
 
@@ -131,36 +266,29 @@ namespace RunningLate
             int grade
         )
         {
-            passed = didPass;
-            finalGrade = grade;
+            passed =
+                didPass;
+
+            finalGrade =
+                grade;
+
             RefreshResultsScreen();
         }
 
         private void HandleRunReset()
         {
             StopEndingVideo();
+
             gameOverReason = "";
             passed = false;
             finalGrade = 0;
-        }
-
-        private void HandleEndingVideoFinished(
-            VideoPlayer source
-        )
-        {
-            if (GameManager.Instance != null &&
-                GameManager.Instance.State ==
-                GameManager.GameState.EndingVideo)
-            {
-                GameManager.Instance.CompleteEndingVideo();
-            }
         }
 
         private void HandlePlayClicked()
         {
             if (GameManager.Instance != null &&
                 GameManager.Instance.State ==
-                GameManager.GameState.GetReady)
+                    GameManager.GameState.GetReady)
             {
                 GameManager.Instance.StartRun();
             }
@@ -234,8 +362,7 @@ namespace RunningLate
             }
 
             VideoClip selectedClip =
-                GameManager.Instance.PendingFinalState ==
-                GameManager.GameState.Results
+                GameManager.Instance.PendingPassed
                     ? successVideoClip
                     : gameOverVideoClip;
 
@@ -252,15 +379,136 @@ namespace RunningLate
                 return;
             }
 
+            ResolveVideoImage();
+
+            if (videoAspectFitter != null &&
+                selectedClip.height > 0)
+            {
+                videoAspectFitter.aspectRatio =
+                    (float)selectedClip.width /
+                    selectedClip.height;
+            }
+
+            waitingForFirstVideoFrame =
+                true;
+
+            if (endingVideoImage != null)
+            {
+                // Keep the RenderTexture hidden until Unity has decoded
+                // the first real video frame. This removes the flash/frame
+                // between gameplay and the ending movie.
+                endingVideoImage.enabled =
+                    false;
+            }
+
             endingVideoPlayer.Stop();
-            endingVideoPlayer.clip = selectedClip;
-            endingVideoPlayer.isLooping = false;
+
+            endingVideoPlayer.clip =
+                selectedClip;
+
+            endingVideoPlayer.isLooping =
+                false;
+
+            endingVideoPlayer.audioOutputMode =
+                VideoAudioOutputMode.None;
+
             endingVideoPlayer.Prepare();
-            endingVideoPlayer.Play();
+        }
+
+        private void HandleVideoPrepared(
+            VideoPlayer source
+        )
+        {
+            if (GameManager.Instance == null ||
+                GameManager.Instance.State !=
+                    GameManager.GameState.EndingVideo)
+            {
+                return;
+            }
+
+            source.Play();
+        }
+
+        private void HandleVideoFrameReady(
+            VideoPlayer source,
+            long frameIndex
+        )
+        {
+            if (!waitingForFirstVideoFrame)
+            {
+                return;
+            }
+
+            waitingForFirstVideoFrame =
+                false;
+
+            if (endingVideoImage != null)
+            {
+                endingVideoImage.enabled =
+                    true;
+            }
+        }
+
+        private void HandleEndingVideoFinished(
+            VideoPlayer source
+        )
+        {
+            waitingForFirstVideoFrame =
+                false;
+
+            if (endingVideoImage != null)
+            {
+                endingVideoImage.enabled =
+                    false;
+            }
+
+            if (GameManager.Instance != null &&
+                GameManager.Instance.State ==
+                    GameManager.GameState.EndingVideo)
+            {
+                GameManager.Instance.CompleteEndingVideo();
+            }
+        }
+
+        private void HandleVideoError(
+            VideoPlayer source,
+            string message
+        )
+        {
+            Debug.LogError(
+                "GameFlowHUD video error: " +
+                message,
+                this
+            );
+
+            waitingForFirstVideoFrame =
+                false;
+
+            if (endingVideoImage != null)
+            {
+                endingVideoImage.enabled =
+                    false;
+            }
+
+            if (GameManager.Instance != null &&
+                GameManager.Instance.State ==
+                    GameManager.GameState.EndingVideo)
+            {
+                GameManager.Instance.CompleteEndingVideo();
+            }
         }
 
         private void StopEndingVideo()
         {
+            waitingForFirstVideoFrame =
+                false;
+
+            if (endingVideoImage != null)
+            {
+                endingVideoImage.enabled =
+                    false;
+            }
+
             if (endingVideoPlayer != null)
             {
                 endingVideoPlayer.Stop();
@@ -348,7 +596,7 @@ namespace RunningLate
 
             if (reason.Contains("Timer"))
             {
-                return "YOU WERE LATE - 5:30!";
+                return "YOU WERE LATE - 17:30!";
             }
 
             if (reason.Contains("Battery"))
@@ -390,7 +638,8 @@ namespace RunningLate
         {
             if (textComponent != null)
             {
-                textComponent.text = value;
+                textComponent.text =
+                    value;
             }
         }
 
@@ -398,8 +647,17 @@ namespace RunningLate
         {
             if (endingVideoPlayer != null)
             {
+                endingVideoPlayer.prepareCompleted -=
+                    HandleVideoPrepared;
+
+                endingVideoPlayer.frameReady -=
+                    HandleVideoFrameReady;
+
                 endingVideoPlayer.loopPointReached -=
                     HandleEndingVideoFinished;
+
+                endingVideoPlayer.errorReceived -=
+                    HandleVideoError;
             }
 
             if (playButton != null)
