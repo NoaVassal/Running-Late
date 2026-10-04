@@ -1,6 +1,7 @@
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.Video;
 
 namespace RunningLate
 {
@@ -8,8 +9,14 @@ namespace RunningLate
     {
         [Header("Screen Roots")]
         [SerializeField] private GameObject startScreen;
+        [SerializeField] private GameObject endingVideoScreen;
         [SerializeField] private GameObject resultsScreen;
         [SerializeField] private GameObject gameOverScreen;
+
+        [Header("Ending Video")]
+        [SerializeField] private VideoPlayer endingVideoPlayer;
+        [SerializeField] private VideoClip successVideoClip;
+        [SerializeField] private VideoClip gameOverVideoClip;
 
         [Header("Start Screen")]
         [SerializeField] private TMP_Text titleText;
@@ -69,6 +76,15 @@ namespace RunningLate
             GameManager.Instance.OnRunReset +=
                 HandleRunReset;
 
+            if (endingVideoPlayer != null)
+            {
+                endingVideoPlayer.loopPointReached -=
+                    HandleEndingVideoFinished;
+
+                endingVideoPlayer.loopPointReached +=
+                    HandleEndingVideoFinished;
+            }
+
             if (playButton != null)
             {
                 playButton.onClick.AddListener(
@@ -122,9 +138,22 @@ namespace RunningLate
 
         private void HandleRunReset()
         {
+            StopEndingVideo();
             gameOverReason = "";
             passed = false;
             finalGrade = 0;
+        }
+
+        private void HandleEndingVideoFinished(
+            VideoPlayer source
+        )
+        {
+            if (GameManager.Instance != null &&
+                GameManager.Instance.State ==
+                GameManager.GameState.EndingVideo)
+            {
+                GameManager.Instance.CompleteEndingVideo();
+            }
         }
 
         private void HandlePlayClicked()
@@ -164,6 +193,11 @@ namespace RunningLate
             );
 
             SetActive(
+                endingVideoScreen,
+                state == GameManager.GameState.EndingVideo
+            );
+
+            SetActive(
                 resultsScreen,
                 state == GameManager.GameState.Results
             );
@@ -173,6 +207,15 @@ namespace RunningLate
                 state == GameManager.GameState.GameOver
             );
 
+            if (state == GameManager.GameState.EndingVideo)
+            {
+                PlayEndingVideo();
+            }
+            else
+            {
+                StopEndingVideo();
+            }
+
             if (state == GameManager.GameState.Results)
             {
                 RefreshResultsScreen();
@@ -180,6 +223,47 @@ namespace RunningLate
             else if (state == GameManager.GameState.GameOver)
             {
                 RefreshGameOverScreen();
+            }
+        }
+
+        private void PlayEndingVideo()
+        {
+            if (GameManager.Instance == null)
+            {
+                return;
+            }
+
+            VideoClip selectedClip =
+                GameManager.Instance.PendingFinalState ==
+                GameManager.GameState.Results
+                    ? successVideoClip
+                    : gameOverVideoClip;
+
+            if (endingVideoPlayer == null ||
+                selectedClip == null)
+            {
+                Debug.LogWarning(
+                    "GameFlowHUD: Ending video player or clip is not assigned. " +
+                    "Continuing to the final screen.",
+                    this
+                );
+
+                GameManager.Instance.CompleteEndingVideo();
+                return;
+            }
+
+            endingVideoPlayer.Stop();
+            endingVideoPlayer.clip = selectedClip;
+            endingVideoPlayer.isLooping = false;
+            endingVideoPlayer.Prepare();
+            endingVideoPlayer.Play();
+        }
+
+        private void StopEndingVideo()
+        {
+            if (endingVideoPlayer != null)
+            {
+                endingVideoPlayer.Stop();
             }
         }
 
@@ -312,6 +396,12 @@ namespace RunningLate
 
         private void OnDestroy()
         {
+            if (endingVideoPlayer != null)
+            {
+                endingVideoPlayer.loopPointReached -=
+                    HandleEndingVideoFinished;
+            }
+
             if (playButton != null)
             {
                 playButton.onClick.RemoveListener(

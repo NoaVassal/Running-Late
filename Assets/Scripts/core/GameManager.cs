@@ -12,6 +12,7 @@ namespace RunningLate
         {
             GetReady,
             Running,
+            EndingVideo,
             Results,
             GameOver
         }
@@ -20,6 +21,8 @@ namespace RunningLate
         [SerializeField] private GameConfig config;
 
         public GameState State { get; private set; } = GameState.GetReady;
+        public GameState PendingFinalState { get; private set; } =
+            GameState.GetReady;
         public float TimeRemaining { get; private set; }
         public bool IsRunning => State == GameState.Running;
 
@@ -28,6 +31,11 @@ namespace RunningLate
         public event Action<string> OnGameOver;
         public event Action<bool, int> OnRunFinished;
         public event Action OnRunReset;
+
+        private bool hasPendingEndingVideo;
+        private bool pendingPassed;
+        private int pendingFinalGrade;
+        private string pendingGameOverReason = "";
 
         private void Awake()
         {
@@ -122,10 +130,15 @@ namespace RunningLate
             if (!IsRunning)
                 return;
 
-            bool passed = finalGrade >= config.passingGrade;
+            pendingPassed =
+                finalGrade >= config.passingGrade;
 
-            SetState(GameState.Results);
-            OnRunFinished?.Invoke(passed, finalGrade);
+            pendingFinalGrade = finalGrade;
+            pendingGameOverReason = "";
+            PendingFinalState = GameState.Results;
+            hasPendingEndingVideo = true;
+
+            SetState(GameState.EndingVideo);
         }
 
         public void TriggerGameOver(string reason)
@@ -133,18 +146,62 @@ namespace RunningLate
             if (!IsRunning)
                 return;
 
-            SetState(GameState.GameOver);
-            OnGameOver?.Invoke(reason);
+            pendingPassed = false;
+            pendingFinalGrade = 0;
+            pendingGameOverReason = reason;
+            PendingFinalState = GameState.GameOver;
+            hasPendingEndingVideo = true;
+
+            SetState(GameState.EndingVideo);
+        }
+
+        public void CompleteEndingVideo()
+        {
+            if (State != GameState.EndingVideo ||
+                !hasPendingEndingVideo)
+            {
+                return;
+            }
+
+            GameState finalState = PendingFinalState;
+            bool didPass = pendingPassed;
+            int finalGrade = pendingFinalGrade;
+            string gameOverReason = pendingGameOverReason;
+
+            ClearPendingEndingVideo();
+            SetState(finalState);
+
+            if (finalState == GameState.Results)
+            {
+                OnRunFinished?.Invoke(
+                    didPass,
+                    finalGrade
+                );
+            }
+            else if (finalState == GameState.GameOver)
+            {
+                OnGameOver?.Invoke(gameOverReason);
+            }
         }
 
         public void RestartRun()
         {
             TimeRemaining = config.classTimer;
+            ClearPendingEndingVideo();
 
             OnRunReset?.Invoke();
             OnTimerChanged?.Invoke(TimeRemaining);
 
             SetState(GameState.GetReady);
+        }
+
+        private void ClearPendingEndingVideo()
+        {
+            hasPendingEndingVideo = false;
+            pendingPassed = false;
+            pendingFinalGrade = 0;
+            pendingGameOverReason = "";
+            PendingFinalState = GameState.GetReady;
         }
 
         private void SetState(GameState newState)
